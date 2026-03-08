@@ -465,7 +465,7 @@ export default function App() {
     e.preventDefault();
     const whatsappNumber = '60129665291';
     const lines = [
-      'Hello Klang Frozen, I would like to enquire.',
+      'Hello Klang Frozen, I would like to place order.',
       '',
       `Company: ${contact.company || '-'}`,
       `Contact Name: ${contact.contactName || '-'}`,
