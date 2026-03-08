@@ -19,6 +19,7 @@ button, input, textarea { font: inherit; }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 800; }
 .brand-logo { width: 44px; height: 44px; object-fit: contain; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; padding: 4px; }
 .header-logo { width: 150px; height: auto; object-fit: contain; margin-bottom: 6px; }
+.header-logo-fallback { width: 150px; height: 56px; margin-bottom: 6px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.7rem; letter-spacing: 1px; color: #2a2f9f; background: linear-gradient(135deg, #caff3f, #2ce271); }
 .layout { width: min(1300px, 100%); margin: 0 auto; display: grid; gap: 24px; }
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .stat strong { display: block; font-size: 2rem; margin-top: 8px; }

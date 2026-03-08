@@ -183,6 +183,7 @@ export default function App() {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [contact, setContact] = useState({ company: '', contactName: '', email: '', phone: '', message: '' });
+  const [logoMissing, setLogoMissing] = useState(false);
 
   useEffect(() => {
     setUsers(load(STORAGE_KEYS.users, defaultUsers));
@@ -790,12 +791,16 @@ export default function App() {
     <div className="page catalogue-page">
       <header className="topbar">
         <div>
-          <img
-            className="header-logo"
-            src={COMPANY_LOGO}
-            alt="Klang Frozen logo"
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          />
+          {logoMissing ? (
+            <div className="header-logo-fallback" aria-label="KFP logo">KFP</div>
+          ) : (
+            <img
+              className="header-logo"
+              src={COMPANY_LOGO}
+              alt="KFP logo"
+              onError={() => setLogoMissing(true)}
+            />
+          )}
           <div className="muted small">Customer product catalogue</div>
         </div>
         <div className="button-row wrap">
