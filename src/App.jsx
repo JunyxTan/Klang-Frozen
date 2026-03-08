@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEYS = {
   users: 'klang_frozen_users',
-  products: 'klang_frozen_products',
   session: 'klang_frozen_session',
   cart: 'klang_frozen_cart',
 };
@@ -199,7 +198,6 @@ export default function App() {
 
   useEffect(() => {
     setUsers(load(STORAGE_KEYS.users, defaultUsers));
-    setProducts(load(STORAGE_KEYS.products, defaultProducts));
     setSession(load(STORAGE_KEYS.session, null));
     setCart(load(STORAGE_KEYS.cart, []));
   }, []);
@@ -214,13 +212,13 @@ export default function App() {
         if (!active) return;
         if (Array.isArray(payload.products)) {
           setProducts(payload.products);
-          save(STORAGE_KEYS.products, payload.products);
         } else {
           throw new Error('Invalid products payload.');
         }
       } catch (error) {
         if (!active) return;
-        setProductsError(`${error.message} Showing cached products.`);
+        setProducts(defaultProducts);
+        setProductsError(`${error.message} Using default repository products.`);
       } finally {
         if (active) setProductsLoading(false);
       }
@@ -240,7 +238,6 @@ export default function App() {
   useEffect(() => { save(STORAGE_KEYS.users, users); }, [users]);
   useEffect(() => { save(STORAGE_KEYS.session, session); }, [session]);
   useEffect(() => { save(STORAGE_KEYS.cart, cart); }, [cart]);
-  useEffect(() => { save(STORAGE_KEYS.products, products); }, [products]);
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'Active'), [products]);
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category).filter(Boolean))], [products]);
@@ -381,7 +378,6 @@ export default function App() {
         throw new Error('Failed to persist product updates.');
       }
       setProducts(payload.products);
-      save(STORAGE_KEYS.products, payload.products);
       return true;
     } catch (error) {
       setProductsError(error.message);
