@@ -181,6 +181,7 @@ export default function App() {
   useEffect(() => { save(STORAGE_KEYS.cart, cart); }, [cart]);
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'Active'), [products]);
+  const catalogueProducts = useMemo(() => products, [products]);
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category).filter(Boolean))], [products]);
   const filteredProducts = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -421,9 +422,7 @@ export default function App() {
         </div>
         <div className="button-row wrap">
           <button className="btn btn-secondary" onClick={() => navigate(ROUTES.home)}>Homepage</button>
-          <button className="btn btn-secondary" onClick={() => navigate(ROUTES.admin)}>{session ? 'Admin Panel' : 'Admin Login'}</button>
           <button className="btn">Cart ({cartCount})</button>
-          {session && <button className="btn btn-secondary" onClick={logout}>Log Out</button>}
         </div>
       </header>
 
@@ -434,156 +433,15 @@ export default function App() {
           <p>Browse our halal-friendly frozen food catalogue and send your order enquiry directly to WhatsApp.</p>
         </section>
 
-        {session && (
-          <section className="card">
-            <div className="section-head">
-              <h2>Admin Panel</h2>
-              <div className="button-row tabs">
-                <button className={`btn ${adminTab === 'products' ? '' : 'btn-secondary'}`} onClick={() => setAdminTab('products')}>Products</button>
-                <button className={`btn ${adminTab === 'users' ? '' : 'btn-secondary'}`} onClick={() => setAdminTab('users')}>Admin Users</button>
-              </div>
-            </div>
-
-            {adminTab === 'products' && (
-              <section className="two-col">
-                <form className="card form-card" onSubmit={saveProduct}>
-                  <h2>{editingProductId ? 'Edit Product' : 'Add Product'}</h2>
-                  <div className="grid-2">
-                    <div><label>Product Name</label><input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} /></div>
-                    <div><label>SKU</label><input value={productForm.sku} onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })} /></div>
-                  </div>
-                  <div className="grid-3">
-                    <div><label>Category</label><input value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} /></div>
-                    <div><label>Price (MYR)</label><input value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} /></div>
-                    <div><label>Status</label><input value={productForm.status} onChange={(e) => setProductForm({ ...productForm, status: e.target.value })} /></div>
-                  </div>
-                  <div><label>Image URL</label><input value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} /></div>
-                  <div><label>Upload Image</label><input type="file" accept="image/*" onChange={handleImageUpload} /></div>
-                  {productForm.image && <img className="preview" src={productForm.image} alt="Preview" />}
-                  <div><label>Description</label><textarea rows="4" value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} /></div>
-                  <div className="checkbox-row">
-                    <label><input type="checkbox" checked={productForm.featured} onChange={(e) => setProductForm({ ...productForm, featured: e.target.checked })} /> Featured</label>
-                    <label><input type="checkbox" checked={productForm.halal} onChange={(e) => setProductForm({ ...productForm, halal: e.target.checked })} /> Halal</label>
-                  </div>
-                  <div className="button-row">
-                    <button className="btn">{editingProductId ? 'Update Product' : 'Add Product'}</button>
-                    {editingProductId && <button type="button" className="btn btn-secondary" onClick={resetProductForm}>Cancel</button>}
-                  </div>
-                </form>
-
-                <div className="card list-card">
-                  <div className="list-head">
-                    <div>
-                      <h2>Product List</h2>
-                      <div className="muted small">Search, filter, edit, and manage your frozen food catalogue.</div>
-                    </div>
-                    <input placeholder="Search product..." value={search} onChange={(e) => setSearch(e.target.value)} />
-                  </div>
-                  <div className="button-row wrap gap-sm">
-                    {categories.map((category) => (
-                      <button key={category} className={`chip ${categoryFilter === category ? 'chip-active' : ''}`} onClick={() => setCategoryFilter(category)}>{category}</button>
-                    ))}
-                  </div>
-                  <div className="list-stack">
-                    {filteredProducts.map((product) => (
-                      <div className="list-item" key={product.id}>
-                        <img src={product.image || 'https://via.placeholder.com/120'} alt={product.name} />
-                        <div className="list-content">
-                          <div className="badge-row">
-                            <strong>{product.name}</strong>
-                            <span className="badge secondary">{product.status}</span>
-                            {product.featured && <span className="badge">Featured</span>}
-                            {product.halal && <span className="badge halal">Halal</span>}
-                          </div>
-                          <div className="muted small">SKU: {product.sku} · {product.category}</div>
-                          <p>{product.description}</p>
-                          <div className="price">{money(product.price)}</div>
-                        </div>
-                        <div className="button-col">
-                          <button className="btn btn-secondary" onClick={() => startEditProduct(product)}>Edit</button>
-                          <button className="btn btn-secondary" onClick={() => deleteProduct(product.id)}>Delete</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {adminTab === 'users' && (
-              <section className="two-col">
-                <form className="card form-card" onSubmit={saveUser}>
-                  <h2>{editingUserId ? 'Edit Admin User' : 'Add Admin User'}</h2>
-                  <div className="grid-2">
-                    <div><label>Name</label><input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} /></div>
-                    <div><label>Email</label><input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} /></div>
-                  </div>
-                  <div className="grid-3">
-                    <div><label>Password</label><input value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} /></div>
-                    <div><label>Role</label><input value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} /></div>
-                    <div><label>Status</label><input value={userForm.status} onChange={(e) => setUserForm({ ...userForm, status: e.target.value })} /></div>
-                  </div>
-                  <div className="button-row">
-                    <button className="btn">{editingUserId ? 'Update User' : 'Add User'}</button>
-                    {editingUserId && <button type="button" className="btn btn-secondary" onClick={resetUserForm}>Cancel</button>}
-                  </div>
-                </form>
-
-                <div className="card list-card">
-                  <h2>Admin Users</h2>
-                  <div className="list-stack">
-                    {users.map((user) => (
-                      <div className="list-item no-image" key={user.id}>
-                        <div>
-                          <div className="badge-row">
-                            <strong>{user.name}</strong>
-                            <span className="badge secondary">{user.role}</span>
-                            <span className="badge secondary">{user.status}</span>
-                          </div>
-                          <div className="muted small">{user.email}</div>
-                        </div>
-                        <div className="button-col">
-                          <button className="btn btn-secondary" onClick={() => startEditUser(user)}>Edit</button>
-                          <button className="btn btn-secondary" onClick={() => deleteUser(user.id)}>Delete</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-          </section>
-        )}
-
-        <section>
-          <div className="section-head">
-            <div>
-              <h2>Featured Frozen Food</h2>
-              <div className="muted small">Showing active products only</div>
-            </div>
-          </div>
-          <div className="product-grid">
-            {(featuredProducts.length ? featuredProducts : activeProducts).map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                qty={cart.find((item) => item.id === product.id)?.quantity || 0}
-                onAdd={addToCart}
-                onEnquire={setSelectedProduct}
-              />
-            ))}
-          </div>
-        </section>
-
         <section>
           <div className="section-head">
             <div>
               <h2>Frozen Food Catalogue</h2>
-              <div className="muted small">All active frozen food products in one customer-facing page.</div>
+              <div className="muted small">All products with customer cart and enquiry flow.</div>
             </div>
           </div>
           <div className="product-grid">
-            {activeProducts.map((product) => (
+            {catalogueProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
