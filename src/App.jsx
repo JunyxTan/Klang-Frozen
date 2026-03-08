@@ -271,6 +271,10 @@ export default function App() {
     });
   }, [products, search, categoryFilter]);
   const featuredProducts = useMemo(() => activeProducts.filter((p) => p.featured), [activeProducts]);
+  const homeFeaturedProducts = useMemo(() => {
+    const byFeatured = [...activeProducts].sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)));
+    return byFeatured.slice(0, 6);
+  }, [activeProducts]);
   const cartCount = useMemo(() => cart.reduce((a, b) => a + b.quantity, 0), [cart]);
   const cartTotal = useMemo(() => cart.reduce((a, b) => a + Number(b.price) * b.quantity, 0), [cart]);
   const dashboardStats = useMemo(() => {
@@ -513,99 +517,229 @@ export default function App() {
   if (route === 'home') {
     return (
       <div className="page home-page">
-        <header className="topbar">
-          <div>
-            <Brand name="Klang Frozen" />
-            <div className="muted small">Frozen food wholesaler for retail, horeca, and distributors</div>
-          </div>
+        <div className="promo-banner">Free delivery above RM300 in selected Klang Valley zones.</div>
+
+        <header className="topbar home-topbar">
+          <Brand name="Klang Frozen" />
+          <nav className="home-nav">
+            <a href="#products">Our Frozen Selection</a>
+            <a href="#why-us">Why Customers Choose Us</a>
+            <a href="#delivery">Fast Delivery in Klang Valley</a>
+            <a href="#reviews">Reviews</a>
+          </nav>
           <div className="button-row wrap">
-            <button className="btn" onClick={() => navigate(ROUTES.catalogue)}>Browse Catalogue</button>
-            <button className="btn btn-secondary" onClick={() => navigate(ROUTES.admin)}>Admin Route</button>
+            <button className="btn btn-secondary" onClick={() => navigate(ROUTES.catalogue)}>View Products</button>
+            <button className="btn" onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}>Contact Us</button>
           </div>
         </header>
 
         <main className="layout">
-          <section className="card home-hero">
-            <span className="pill">Klang Frozen Premium Supply</span>
-            <h1>Reliable frozen food distribution built for growing food businesses.</h1>
-            <p>
-              We support restaurants, grocers, and bulk buyers with stable stock, consistent quality, and
-              dependable cold-chain handling from sourcing to delivery.
-            </p>
-            <div className="button-row wrap">
-              <button className="btn" onClick={() => navigate(ROUTES.catalogue)}>View Product Catalogue</button>
-              <button className="btn btn-secondary" onClick={() => window.open(catalogueLink, '_blank')}>Copy Shareable Link</button>
+          <section className="home-hero surface-white" id="hero">
+            <div className="hero-copy-block">
+              <span className="pill">Premium Frozen Supply</span>
+              <h1>Fresh Frozen Products Delivered Fast.</h1>
+              <p>From daily essentials to best-selling frozen favorites for homes and businesses across Klang Valley.</p>
+              <button className="btn btn-large" onClick={() => navigate(ROUTES.catalogue)}>Shop Now</button>
             </div>
-            <div className="home-metrics">
-              <div className="metric-item">
-                <strong>500+</strong>
-                <span>Wholesale clients</span>
-              </div>
-              <div className="metric-item">
-                <strong>24/7</strong>
-                <span>Cold-chain monitoring</span>
-              </div>
-              <div className="metric-item">
-                <strong>99%</strong>
-                <span>On-time fulfillment</span>
-              </div>
-              <div className="metric-item">
-                <strong>Halal</strong>
-                <span>Friendly sourcing</span>
+            <div className="hero-spotlight card">
+              <h3>What You Can Expect</h3>
+              <div className="feature-list">
+                <div className="feature-item">
+                  <span className="feature-icon">C</span>
+                  <div>
+                    <strong>Freshness Guarantee</strong>
+                    <p>Cold-chain handling from storage to your doorstep.</p>
+                  </div>
+                </div>
+                <div className="feature-item">
+                  <span className="feature-icon">H</span>
+                  <div>
+                    <strong>Halal-Friendly Options</strong>
+                    <p>Clear product badges for easy selection.</p>
+                  </div>
+                </div>
+                <div className="feature-item">
+                  <span className="feature-icon">F</span>
+                  <div>
+                    <strong>Fast Response</strong>
+                    <p>Order enquiries handled quickly via WhatsApp.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
 
-          <section className="card home-section">
-            <div className="section-head">
+          <section className="home-section surface-tint" id="products">
+            <div className="section-head home-section-head">
               <div>
-                <h2>Why Klang Frozen</h2>
-                <div className="muted small">A wholesale partner focused on quality, speed, and consistency.</div>
+                <h2>Best Sellers</h2>
+                <div className="muted small">Uniform packs with consistent quality and pricing.</div>
+              </div>
+              <button className="btn btn-secondary" onClick={() => navigate(ROUTES.catalogue)}>View Products</button>
+            </div>
+            <div className="home-product-grid">
+              {homeFeaturedProducts.map((product) => (
+                <article className="card home-product-card" key={product.id}>
+                  <div className="home-product-image">
+                    <img src={product.image || 'https://via.placeholder.com/600x400?text=Klang+Frozen'} alt={product.name} />
+                  </div>
+                  <div className="home-product-body">
+                    <h3>{product.name}</h3>
+                    <p>{product.description}</p>
+                    <div className="home-product-meta">
+                      <strong>{money(product.price)}</strong>
+                      <span>{product.category}</span>
+                    </div>
+                    <button className="btn btn-secondary wide" onClick={() => navigate(ROUTES.catalogue)}>View Product</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="home-section surface-white" id="why-us">
+            <div className="section-head home-section-head">
+              <div>
+                <h2>Why Customers Choose Us</h2>
+                <div className="muted small">Built around quality, speed, and trust.</div>
               </div>
             </div>
             <div className="home-grid-3">
-              <article className="value-card">
-                <h3>Premium Product Standards</h3>
-                <p>We maintain strict quality checks across seafood, dim sum, poultry, and vegetable categories.</p>
+              <div className="value-card">
+                <h3>Reliable Quality</h3>
+                <p>Consistent stock standards across all frozen categories.</p>
+              </div>
+              <div className="value-card">
+                <h3>Cold-Chain Care</h3>
+                <p>Proper storage and delivery workflow to protect freshness.</p>
+              </div>
+              <div className="value-card">
+                <h3>Responsive Support</h3>
+                <p>Fast order confirmation and clear communication on WhatsApp.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="home-section surface-tint" id="delivery">
+            <div className="section-head home-section-head">
+              <div>
+                <h2>Fast Delivery in Klang Valley</h2>
+                <div className="muted small">Coverage and service confidence at a glance.</div>
+              </div>
+            </div>
+            <div className="home-grid-3">
+              <div className="service-block">
+                <h3>Delivery Areas</h3>
+                <p>Klang, Shah Alam, Subang, PJ, and selected nearby zones.</p>
+              </div>
+              <div className="service-block">
+                <h3>Freshness Guarantee</h3>
+                <p>Temperature-controlled handling with quality checks before dispatch.</p>
+              </div>
+              <div className="service-block">
+                <h3>Business Friendly</h3>
+                <p>Suitable for households, restaurants, cafes, and resellers.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="home-section surface-white" id="reviews">
+            <div className="section-head home-section-head">
+              <div>
+                <h2>Customer Reviews</h2>
+                <div className="muted small">Feedback from regular Klang Frozen buyers.</div>
+              </div>
+            </div>
+            <div className="home-grid-3">
+              <article className="review-card">
+                <p>"Products are clean, well-packed, and arrive on time every week."</p>
+                <strong>- Nusantara Eatery, Klang</strong>
               </article>
-              <article className="value-card">
-                <h3>Operational Reliability</h3>
-                <p>Predictable lead times and responsive support help your kitchen and inventory planning stay stable.</p>
+              <article className="review-card">
+                <p>"Fast WhatsApp response and easy ordering for our cafe team."</p>
+                <strong>- Rasa Kopi House, PJ</strong>
               </article>
-              <article className="value-card">
-                <h3>Scalable Supply</h3>
-                <p>From single-outlet buyers to multi-branch groups, we adapt volume and delivery frequency.</p>
+              <article className="review-card">
+                <p>"Great quality for bulk buying. Consistent stock and delivery."</p>
+                <strong>- Fresh Mart Reseller, Shah Alam</strong>
               </article>
             </div>
           </section>
 
-          <section className="card home-section">
-            <div className="section-head">
+          <section className="home-section surface-tint faq-section" id="faq">
+            <div className="section-head home-section-head">
               <div>
-                <h2>Built for B2B Food Buyers</h2>
-                <div className="muted small">How we support your purchasing and operations team.</div>
+                <h2>FAQ</h2>
+                <div className="muted small">Short answers to common buying questions.</div>
               </div>
             </div>
             <div className="home-grid-2">
               <div className="service-block">
-                <h3>Category Breadth</h3>
-                <p>Frozen proteins, seafood, vegetables, and prepared items curated for menu flexibility and margin control.</p>
+                <h3>How do I place an order?</h3>
+                <p>Browse products, then send your enquiry through WhatsApp.</p>
               </div>
               <div className="service-block">
-                <h3>Procurement Simplicity</h3>
-                <p>Use one catalogue link to collect internal approvals, shortlist SKUs, and submit order enquiries quickly.</p>
+                <h3>Do you have halal items?</h3>
+                <p>Yes, halal-friendly products are clearly labeled.</p>
               </div>
               <div className="service-block">
-                <h3>Trusted Handling</h3>
-                <p>Cold storage and distribution workflows are maintained to protect product integrity at every stage.</p>
+                <h3>Can businesses order in bulk?</h3>
+                <p>Yes, we support wholesale packs for horeca and resellers.</p>
               </div>
               <div className="service-block">
-                <h3>Dedicated Account Care</h3>
-                <p>Our team supports recurring buyers with faster response, stock updates, and practical recommendations.</p>
+                <h3>What is the minimum for delivery?</h3>
+                <p>Delivery minimum and fees vary by zone and order size.</p>
               </div>
             </div>
           </section>
+
+          <section className="home-section surface-white" id="contact">
+            <div className="section-head home-section-head">
+              <div>
+                <h2>Contact Klang Frozen</h2>
+                <div className="muted small">Order support and delivery enquiries.</div>
+              </div>
+              <button className="btn" onClick={() => window.open(catalogueLink, '_blank')}>Share Catalogue</button>
+            </div>
+            <div className="contact-grid">
+              <div className="contact-item"><strong>WhatsApp</strong><span>+60 12-966 5291</span></div>
+              <div className="contact-item"><strong>Email</strong><span>sales@klangfrozen.com</span></div>
+              <div className="contact-item"><strong>Address</strong><span>Klang, Selangor, Malaysia</span></div>
+              <div className="contact-item"><strong>Business Hours</strong><span>Mon-Sat, 9:00 AM - 6:00 PM</span></div>
+            </div>
+          </section>
         </main>
+
+        <footer className="home-footer">
+          <div className="footer-brand">
+            <Brand name="Klang Frozen" />
+            <p>Fresh frozen products delivered to your doorstep.</p>
+          </div>
+          <div className="footer-links">
+            <h4>Quick Links</h4>
+            <a href="#products">Our Frozen Selection</a>
+            <a href="#why-us">Why Customers Choose Us</a>
+            <a href="#delivery">Delivery Areas</a>
+            <a href="#faq">FAQ</a>
+          </div>
+          <div className="footer-links">
+            <h4>Contact</h4>
+            <a href="https://wa.me/60129665291" target="_blank" rel="noreferrer">WhatsApp</a>
+            <a href="mailto:sales@klangfrozen.com">sales@klangfrozen.com</a>
+            <span>Klang, Selangor</span>
+            <span>Mon-Sat, 9:00 AM - 6:00 PM</span>
+          </div>
+          <div className="footer-links">
+            <h4>Social</h4>
+            <a href="#" aria-label="Facebook">Facebook</a>
+            <a href="#" aria-label="Instagram">Instagram</a>
+            <a href="#" aria-label="TikTok">TikTok</a>
+          </div>
+        </footer>
+
+        <a className="whatsapp-float" href="https://wa.me/60129665291" target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">
+          WhatsApp
+        </a>
       </div>
     );
   }
@@ -827,7 +961,7 @@ export default function App() {
                             }}
                             disabled={productsSaving}
                           >
-                            ×
+                            x
                           </button>
                         </div>
                       ))}
@@ -898,7 +1032,7 @@ export default function App() {
                             }}
                             disabled={user.id === session.id}
                           >
-                            ×
+                            x
                           </button>
                         </div>
                       ))}
