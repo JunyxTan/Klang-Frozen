@@ -436,7 +436,7 @@ export default function App() {
   }
 
   return (
-    <div className="page">
+    <div className="page catalogue-page">
       <header className="topbar">
         <div>
           <div className="brand">Klang Frozen</div>
