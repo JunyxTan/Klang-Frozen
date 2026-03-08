@@ -790,7 +790,12 @@ export default function App() {
     <div className="page catalogue-page">
       <header className="topbar">
         <div>
-          <Brand name="Klang Frozen" />
+          <img
+            className="header-logo"
+            src={COMPANY_LOGO}
+            alt="Klang Frozen logo"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
           <div className="muted small">Customer product catalogue</div>
         </div>
         <div className="button-row wrap">
