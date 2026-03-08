@@ -125,6 +125,22 @@ async function requestJSON(url, options = {}) {
 }
 
 function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire }) {
+  const [addQty, setAddQty] = useState(1);
+
+  function handleAddQtyChange(e) {
+    const next = Number.parseInt(e.target.value, 10);
+    if (Number.isNaN(next)) {
+      setAddQty('');
+      return;
+    }
+    setAddQty(Math.min(999, Math.max(1, next)));
+  }
+
+  function handleAddToCart() {
+    const quantity = Number.parseInt(addQty, 10);
+    onAdd(product, Number.isNaN(quantity) ? 1 : Math.max(1, quantity));
+  }
+
   return (
     <div className="card product-card">
       <div className="image-wrap">
@@ -152,7 +168,20 @@ function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire 
               {selected ? 'Selected' : 'Select'}
             </button>
             <button className="btn btn-secondary" onClick={() => onEnquire(product)}>Enquire</button>
-            <button className="btn" onClick={() => onAdd(product)}>Add to Cart</button>
+            <input
+              className="qty-input"
+              type="number"
+              min="1"
+              max="999"
+              value={addQty}
+              onChange={handleAddQtyChange}
+              aria-label={`Quantity for ${product.name}`}
+            />
+            <button className="btn icon-btn" onClick={handleAddToCart} aria-label={`Add ${product.name} to cart`}>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4.5 7.5A2.5 2.5 0 0 1 7 5h10a2.5 2.5 0 0 1 2.5 2.5v.8a4.5 4.5 0 0 1-1.9 3.66l-2.8 2.02a4.5 4.5 0 0 1-5.22 0L6.78 11.96A4.5 4.5 0 0 1 4.5 8.32V7.5ZM7 7a.5.5 0 0 0-.5.5v.82a2.5 2.5 0 0 0 1.04 2.04l2.8 2.02a2.5 2.5 0 0 0 2.9 0l2.8-2.02a2.5 2.5 0 0 0 1.06-2.04V7.5A.5.5 0 0 0 17 7H7Zm1.25 8.75a1 1 0 1 1 2 0v1.5a1 1 0 1 1-2 0v-1.5Zm5.5 0a1 1 0 1 1 2 0v1.5a1 1 0 1 1-2 0v-1.5Z" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -317,13 +346,21 @@ export default function App() {
     navigate(ROUTES.home);
   }
 
-  function addToCart(product) {
+  function addToCart(product, quantity = 1) {
+    const qtyToAdd = Math.max(1, Number.parseInt(quantity, 10) || 1);
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
-        return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
+        return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + qtyToAdd } : item));
       }
-      return [...prev, { id: product.id, name: product.name, price: product.price, image: product.image, halal: product.halal, quantity: 1 }];
+      return [...prev, {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        halal: product.halal,
+        quantity: qtyToAdd,
+      }];
     });
   }
 
