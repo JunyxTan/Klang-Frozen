@@ -90,6 +90,7 @@ const ROUTES = {
   catalogue: '/catalogue',
   admin: '/admin',
 };
+const COMPANY_LOGO = '/company-logo.png';
 
 function getRoute(pathname) {
   if (pathname.startsWith(ROUTES.admin)) return 'admin';
@@ -146,6 +147,20 @@ function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire 
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Brand({ name }) {
+  return (
+    <div className="brand">
+      <img
+        className="brand-logo"
+        src={COMPANY_LOGO}
+        alt={`${name} logo`}
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
+      <span>{name}</span>
     </div>
   );
 }
@@ -420,7 +435,7 @@ export default function App() {
       <div className="page">
         <header className="topbar">
           <div>
-            <div className="brand">Klang Frozen</div>
+            <Brand name="Klang Frozen" />
             <div className="muted small">Public homepage for buyers</div>
           </div>
           <div className="button-row wrap">
@@ -478,7 +493,7 @@ export default function App() {
       <div className="page admin-page">
         <header className="topbar">
           <div>
-            <div className="brand">Klang Frozen Admin</div>
+            <Brand name="Klang Frozen Admin" />
             <div className="muted small">Logged in as {session.name} ({session.role})</div>
           </div>
           <div className="button-row wrap">
@@ -775,7 +790,7 @@ export default function App() {
     <div className="page catalogue-page">
       <header className="topbar">
         <div>
-          <div className="brand">Klang Frozen</div>
+          <Brand name="Klang Frozen" />
           <div className="muted small">Customer product catalogue</div>
         </div>
         <div className="button-row wrap">

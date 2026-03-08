@@ -16,7 +16,8 @@ button, input, textarea { font: inherit; }
 .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 24px; padding: 20px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); }
 .auth-card { max-width: 420px; width: 100%; }
 .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 20px; margin-bottom: 24px; background: #fff; border-radius: 24px; border: 1px solid #e2e8f0; }
-.brand { font-size: 1.5rem; font-weight: 800; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 800; }
+.brand-logo { width: 44px; height: 44px; object-fit: contain; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; padding: 4px; }
 .layout { width: min(1300px, 100%); margin: 0 auto; display: grid; gap: 24px; }
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .stat strong { display: block; font-size: 2rem; margin-top: 8px; }
