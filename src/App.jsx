@@ -91,6 +91,7 @@ const ROUTES = {
   admin: '/admin',
 };
 const COMPANY_LOGO = '/company-logo.png';
+const PRODUCTS_API = '/.netlify/functions/products';
 
 function getRoute(pathname) {
   if (pathname.startsWith(ROUTES.admin)) return 'admin';
@@ -113,6 +114,15 @@ function load(key, fallback) {
   } catch {
     return fallback;
   }
+}
+
+async function requestJSON(url, options = {}) {
+  const response = await fetch(url, options);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || 'Request failed.');
+  }
+  return payload;
 }
 
 function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire }) {
@@ -183,6 +193,9 @@ export default function App() {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [contact, setContact] = useState({ company: '', contactName: '', email: '', phone: '', message: '' });
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsSaving, setProductsSaving] = useState(false);
+  const [productsError, setProductsError] = useState('');
 
   useEffect(() => {
     setUsers(load(STORAGE_KEYS.users, defaultUsers));
@@ -192,15 +205,42 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    async function syncProductsFromRepo() {
+      setProductsLoading(true);
+      setProductsError('');
+      try {
+        const payload = await requestJSON(PRODUCTS_API);
+        if (!active) return;
+        if (Array.isArray(payload.products)) {
+          setProducts(payload.products);
+          save(STORAGE_KEYS.products, payload.products);
+        } else {
+          throw new Error('Invalid products payload.');
+        }
+      } catch (error) {
+        if (!active) return;
+        setProductsError(`${error.message} Showing cached products.`);
+      } finally {
+        if (active) setProductsLoading(false);
+      }
+    }
+    syncProductsFromRepo();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const onPopState = () => setRoute(getRoute(window.location.pathname));
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   useEffect(() => { save(STORAGE_KEYS.users, users); }, [users]);
-  useEffect(() => { save(STORAGE_KEYS.products, products); }, [products]);
   useEffect(() => { save(STORAGE_KEYS.session, session); }, [session]);
   useEffect(() => { save(STORAGE_KEYS.cart, cart); }, [cart]);
+  useEffect(() => { save(STORAGE_KEYS.products, products); }, [products]);
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'Active'), [products]);
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category).filter(Boolean))], [products]);
@@ -324,19 +364,47 @@ export default function App() {
     setEditingProductId(null);
   }
 
-  function saveProduct(e) {
+  async function persistProducts(nextProducts, actionLabel) {
+    setProductsSaving(true);
+    setProductsError('');
+    try {
+      const payload = await requestJSON(PRODUCTS_API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          products: nextProducts,
+          actor: session?.email || 'admin@klangfrozen.com',
+          action: actionLabel,
+        }),
+      });
+      if (!Array.isArray(payload.products)) {
+        throw new Error('Failed to persist product updates.');
+      }
+      setProducts(payload.products);
+      save(STORAGE_KEYS.products, payload.products);
+      return true;
+    } catch (error) {
+      setProductsError(error.message);
+      return false;
+    } finally {
+      setProductsSaving(false);
+    }
+  }
+
+  async function saveProduct(e) {
     e.preventDefault();
     if (!productForm.name || !productForm.sku || !productForm.category || !productForm.price) return;
-    if (editingProductId) {
-      setProducts((prev) => prev.map((p) => (p.id === editingProductId ? { ...productForm, id: editingProductId } : p)));
-    } else {
-      setProducts((prev) => [{ ...productForm, id: Date.now() }, ...prev]);
-    }
+    const nextProducts = editingProductId
+      ? products.map((p) => (p.id === editingProductId ? { ...productForm, id: editingProductId } : p))
+      : [{ ...productForm, id: Date.now() }, ...products];
+    const ok = await persistProducts(nextProducts, editingProductId ? 'update product' : 'create product');
+    if (!ok) return;
     resetProductForm();
   }
 
-  function deleteProduct(id) {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+  async function deleteProduct(id) {
+    const nextProducts = products.filter((p) => p.id !== id);
+    await persistProducts(nextProducts, 'delete product');
   }
 
   function handleImageUpload(e) {
@@ -623,8 +691,10 @@ export default function App() {
                 <div>
                   <h2>Product Management</h2>
                   <div className="muted small">Add, edit, and manage frozen food products</div>
+                  {productsLoading && <div className="muted small">Syncing products from GitHub...</div>}
+                  {productsError && <div className="error">{productsError}</div>}
                 </div>
-                <button className="btn" onClick={() => setEditingProductId(null)}>Add New Product</button>
+                <button className="btn" onClick={resetProductForm} disabled={productsSaving}>Add New Product</button>
               </div>
 
               <div className="two-col">
@@ -666,8 +736,10 @@ export default function App() {
                     </label>
                   </div>
                   <div className="button-row">
-                    <button type="button" className="btn btn-secondary" onClick={resetProductForm}>Cancel</button>
-                    <button className="btn" type="submit">{editingProductId ? 'Update Product' : 'Add Product'}</button>
+                    <button type="button" className="btn btn-secondary" onClick={resetProductForm} disabled={productsSaving}>Cancel</button>
+                    <button className="btn" type="submit" disabled={productsSaving}>
+                      {productsSaving ? 'Saving...' : editingProductId ? 'Update Product' : 'Add Product'}
+                    </button>
                   </div>
                 </form>
 
@@ -699,6 +771,7 @@ export default function App() {
                               e.stopPropagation();
                               if (confirm('Delete this product?')) deleteProduct(product.id);
                             }}
+                            disabled={productsSaving}
                           >
                             ×
                           </button>

@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "name": "Premium Frozen Chicken Gyoza",
+    "sku": "KF-CG-001",
+    "category": "Frozen Dim Sum",
+    "price": "28.90",
+    "description": "Restaurant-grade frozen chicken gyoza for food service and wholesale buyers.",
+    "status": "Active",
+    "featured": true,
+    "halal": true,
+    "image": "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    "id": 2,
+    "name": "Frozen Breaded Fish Fillet",
+    "sku": "KF-BF-002",
+    "category": "Frozen Seafood",
+    "price": "35.50",
+    "description": "Crispy coated fish fillet suitable for cafes, restaurants, and resellers.",
+    "status": "Active",
+    "featured": true,
+    "halal": true,
+    "image": "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    "id": 3,
+    "name": "Frozen Mixed Vegetables Pack",
+    "sku": "KF-MV-003",
+    "category": "Frozen Vegetables",
+    "price": "12.90",
+    "description": "Convenient frozen mixed vegetables for restaurants, caterers, and distributors.",
+    "status": "Active",
+    "featured": false,
+    "halal": false,
+    "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80"
+  }
+]

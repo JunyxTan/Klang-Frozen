@@ -43,3 +43,19 @@ After deploy, test these URLs directly in a new tab:
 - `/admin`
 
 If each route loads instead of showing 404, the redirect is configured correctly.
+
+## Product Data Saved In GitHub
+
+Products are now sourced from `data/products.json` in this repository and updated through a Netlify Function that commits changes back to GitHub.
+
+Set these Netlify environment variables:
+
+- `GITHUB_TOKEN`: GitHub Personal Access Token with `contents:write` access to the repo.
+- `GITHUB_OWNER`: repo owner, e.g. `JunyxTan`
+- `GITHUB_REPO`: repo name, e.g. `Klang-Frozen`
+- `GITHUB_BRANCH`: branch to update (default: `main`)
+- `GITHUB_PRODUCTS_PATH`: file path for products JSON (default: `data/products.json`)
+
+Notes:
+- Without these variables, the app falls back to cached/local products and shows an error banner in Product Management.
+- Once configured, product create/update/delete in Admin writes directly to the repo file so all devices load the same product list.
