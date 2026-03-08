@@ -200,6 +200,44 @@ export default function App() {
   const featuredProducts = useMemo(() => activeProducts.filter((p) => p.featured), [activeProducts]);
   const cartCount = useMemo(() => cart.reduce((a, b) => a + b.quantity, 0), [cart]);
   const cartTotal = useMemo(() => cart.reduce((a, b) => a + Number(b.price) * b.quantity, 0), [cart]);
+  const dashboardStats = useMemo(() => {
+    const activeUsers = users.filter((u) => u.status === 'Active').length;
+    const activeManagers = users.filter((u) => u.role === 'Manager' && u.status === 'Active').length;
+    const superAdmins = users.filter((u) => u.role === 'Super Admin' && u.status === 'Active').length;
+    const inactiveProducts = products.filter((p) => p.status !== 'Active').length;
+    return {
+      totalProducts: products.length,
+      activeProducts: activeProducts.length,
+      inactiveProducts,
+      featuredProducts: featuredProducts.length,
+      totalUsers: users.length,
+      activeUsers,
+      activeManagers,
+      superAdmins,
+      cartItems: cartCount,
+      cartValue: cartTotal,
+    };
+  }, [products, users, activeProducts.length, featuredProducts.length, cartCount, cartTotal]);
+  const categoryBreakdown = useMemo(() => {
+    const total = products.length || 1;
+    const counts = products.reduce((acc, product) => {
+      const key = product.category || 'Uncategorized';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(counts)
+      .map(([category, count]) => ({
+        category,
+        count,
+        ratio: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [products]);
+  const cartHighlights = useMemo(() => (
+    [...cart]
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 3)
+  ), [cart]);
   const catalogueLink = `${window.location.origin}${ROUTES.catalogue}`;
 
   function navigate(to) {
@@ -430,6 +468,289 @@ export default function App() {
               ))}
             </div>
           </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (route === 'admin' && session) {
+    return (
+      <div className="page admin-page">
+        <header className="topbar">
+          <div>
+            <div className="brand">Klang Frozen Admin</div>
+            <div className="muted small">Logged in as {session.name} ({session.role})</div>
+          </div>
+          <div className="button-row wrap">
+            <button className="btn btn-secondary" onClick={() => navigate(ROUTES.home)}>Public Site</button>
+            <button className="btn btn-secondary" onClick={() => navigate(ROUTES.catalogue)}>Catalogue</button>
+            <button className="btn btn-secondary" onClick={logout}>Logout</button>
+          </div>
+        </header>
+
+        <main className="layout">
+          <section>
+            <div className="section-head">
+              <div>
+                <h2>Admin Panel</h2>
+                <div className="muted small">Manage products and users</div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="tab-buttons">
+                <button
+                  className={`tab-btn ${adminTab === 'dashboard' ? 'tab-active' : ''}`}
+                  onClick={() => setAdminTab('dashboard')}
+                >
+                  Dashboard
+                </button>
+                <button
+                  className={`tab-btn ${adminTab === 'products' ? 'tab-active' : ''}`}
+                  onClick={() => setAdminTab('products')}
+                >
+                  Products ({products.length})
+                </button>
+                <button
+                  className={`tab-btn ${adminTab === 'users' ? 'tab-active' : ''}`}
+                  onClick={() => setAdminTab('users')}
+                >
+                  Users ({users.length})
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {adminTab === 'dashboard' && (
+            <section className="stack-gap">
+              <div className="section-head">
+                <div>
+                  <h2>Admin Dashboard</h2>
+                  <div className="muted small">Live overview of products, users, and catalogue activity</div>
+                </div>
+              </div>
+
+              <div className="stats-grid">
+                <div className="card stat"><span className="muted small">Total Products</span><strong>{dashboardStats.totalProducts}</strong></div>
+                <div className="card stat"><span className="muted small">Active Products</span><strong>{dashboardStats.activeProducts}</strong></div>
+                <div className="card stat"><span className="muted small">Featured Products</span><strong>{dashboardStats.featuredProducts}</strong></div>
+                <div className="card stat"><span className="muted small">Inactive Products</span><strong>{dashboardStats.inactiveProducts}</strong></div>
+                <div className="card stat"><span className="muted small">Total Users</span><strong>{dashboardStats.totalUsers}</strong></div>
+                <div className="card stat"><span className="muted small">Active Users</span><strong>{dashboardStats.activeUsers}</strong></div>
+                <div className="card stat"><span className="muted small">Active Managers</span><strong>{dashboardStats.activeManagers}</strong></div>
+                <div className="card stat"><span className="muted small">Super Admins</span><strong>{dashboardStats.superAdmins}</strong></div>
+              </div>
+
+              <div className="two-col">
+                <div className="card list-card">
+                  <h3>Category Breakdown</h3>
+                  <div className="muted small">Distribution of current catalogue items by category</div>
+                  {categoryBreakdown.length === 0 ? (
+                    <div className="empty">No product categories yet.</div>
+                  ) : (
+                    <div className="dashboard-breakdown">
+                      {categoryBreakdown.map((entry) => (
+                        <div className="breakdown-row" key={entry.category}>
+                          <div>
+                            <strong>{entry.category}</strong>
+                            <div className="muted small">{entry.count} product(s)</div>
+                          </div>
+                          <span className="badge secondary">{entry.ratio}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="card list-card">
+                  <h3>Cart Activity Snapshot</h3>
+                  <div className="muted small">What customers are currently selecting in this browser session</div>
+                  <div className="dashboard-cart-stat">
+                    <span>Total Cart Items</span>
+                    <strong>{dashboardStats.cartItems}</strong>
+                  </div>
+                  <div className="dashboard-cart-stat">
+                    <span>Estimated Cart Value</span>
+                    <strong>{money(dashboardStats.cartValue)}</strong>
+                  </div>
+                  {cartHighlights.length ? (
+                    <div className="dashboard-breakdown">
+                      {cartHighlights.map((item) => (
+                        <div className="breakdown-row" key={item.id}>
+                          <div>
+                            <strong>{item.name}</strong>
+                            <div className="muted small">{money(item.price)} each</div>
+                          </div>
+                          <span className="badge">{item.quantity} in cart</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty">No cart activity yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="card">
+                <h3>Quick Actions</h3>
+                <div className="button-row wrap">
+                  <button className="btn" onClick={() => setAdminTab('products')}>Manage Products</button>
+                  <button className="btn btn-secondary" onClick={() => setAdminTab('users')}>Manage Users</button>
+                  <button className="btn btn-secondary" onClick={() => navigate(ROUTES.catalogue)}>Open Catalogue</button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {adminTab === 'products' && (
+            <section>
+              <div className="section-head">
+                <div>
+                  <h2>Product Management</h2>
+                  <div className="muted small">Add, edit, and manage frozen food products</div>
+                </div>
+                <button className="btn" onClick={() => setEditingProductId(null)}>Add New Product</button>
+              </div>
+
+              <div className="two-col">
+                <form className="card form-card" onSubmit={saveProduct}>
+                  <h3>{editingProductId ? 'Edit Product' : 'Add New Product'}</h3>
+                  <div className="grid-2">
+                    <div><label>Name *</label><input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} required /></div>
+                    <div><label>SKU *</label><input value={productForm.sku} onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })} required /></div>
+                  </div>
+                  <div className="grid-2">
+                    <div><label>Category *</label><input value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} required /></div>
+                    <div><label>Price (MYR) *</label><input type="number" step="0.01" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} required /></div>
+                  </div>
+                  <div><label>Description</label><textarea rows="3" value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} /></div>
+                  <div><label>Image URL</label><input value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} placeholder="https://..." /></div>
+                  <div className="form-row">
+                    <label className="checkbox">
+                      <input type="checkbox" checked={productForm.featured} onChange={(e) => setProductForm({ ...productForm, featured: e.target.checked })} />
+                      Featured product
+                    </label>
+                    <label className="checkbox">
+                      <input type="checkbox" checked={productForm.halal} onChange={(e) => setProductForm({ ...productForm, halal: e.target.checked })} />
+                      Halal certified
+                    </label>
+                  </div>
+                  <div className="button-row">
+                    <button type="button" className="btn btn-secondary" onClick={resetProductForm}>Cancel</button>
+                    <button className="btn" type="submit">{editingProductId ? 'Update Product' : 'Add Product'}</button>
+                  </div>
+                </form>
+
+                <div className="card list-card">
+                  <h3>Product List</h3>
+                  <div className="muted small">Click on a product to edit</div>
+                  {products.length === 0 ? (
+                    <div className="empty">No products yet.</div>
+                  ) : (
+                    <div className="admin-list">
+                      {products.map((product) => (
+                        <div key={product.id} className="admin-item" onClick={() => startEditProduct(product)}>
+                          <img src={product.image || 'https://via.placeholder.com/80'} alt={product.name} />
+                          <div className="list-content">
+                            <div className="badge-row">
+                              <strong>{product.name}</strong>
+                              <span className={`status ${product.status.toLowerCase()}`}>{product.status}</span>
+                            </div>
+                            <div className="muted small">SKU: {product.sku} | {product.category} | {money(product.price)}</div>
+                            <div className="muted small">{product.description}</div>
+                            <div className="badge-row">
+                              {product.featured && <span className="badge">Featured</span>}
+                              {product.halal && <span className="badge halal">Halal</span>}
+                            </div>
+                          </div>
+                          <button
+                            className="btn btn-secondary square"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('Delete this product?')) deleteProduct(product.id);
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {adminTab === 'users' && (
+            <section>
+              <div className="section-head">
+                <div>
+                  <h2>User Management</h2>
+                  <div className="muted small">Manage admin and manager accounts</div>
+                </div>
+                <button className="btn" onClick={() => setEditingUserId(null)}>Add New User</button>
+              </div>
+
+              <div className="two-col">
+                <form className="card form-card" onSubmit={saveUser}>
+                  <h3>{editingUserId ? 'Edit User' : 'Add New User'}</h3>
+                  <div><label>Name *</label><input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} required /></div>
+                  <div><label>Email *</label><input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} required /></div>
+                  <div><label>Password *</label><input type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} required /></div>
+                  <div>
+                    <label>Role</label>
+                    <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}>
+                      <option value="Manager">Manager</option>
+                      <option value="Super Admin">Super Admin</option>
+                    </select>
+                  </div>
+                  <div className="form-row">
+                    <label className="checkbox">
+                      <input type="checkbox" checked={userForm.status === 'Active'} onChange={(e) => setUserForm({ ...userForm, status: e.target.checked ? 'Active' : 'Inactive' })} />
+                      Active user
+                    </label>
+                  </div>
+                  <div className="button-row">
+                    <button type="button" className="btn btn-secondary" onClick={resetUserForm}>Cancel</button>
+                    <button className="btn" type="submit">{editingUserId ? 'Update User' : 'Add User'}</button>
+                  </div>
+                </form>
+
+                <div className="card list-card">
+                  <h3>User List</h3>
+                  <div className="muted small">Click on a user to edit</div>
+                  {users.length === 0 ? (
+                    <div className="empty">No users yet.</div>
+                  ) : (
+                    <div className="admin-list">
+                      {users.map((user) => (
+                        <div key={user.id} className="admin-item" onClick={() => startEditUser(user)}>
+                          <div className="avatar">{user.name.charAt(0).toUpperCase()}</div>
+                          <div className="list-content">
+                            <div className="badge-row">
+                              <strong>{user.name}</strong>
+                              <span className={`status ${user.status.toLowerCase()}`}>{user.status}</span>
+                            </div>
+                            <div className="muted small">{user.email} | {user.role}</div>
+                          </div>
+                          <button
+                            className="btn btn-secondary square"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('Delete this user?')) deleteUser(user.id);
+                            }}
+                            disabled={user.id === session.id}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
         </main>
       </div>
     );
