@@ -625,6 +625,21 @@ export default function App() {
                   </div>
                   <div><label>Description</label><textarea rows="3" value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} /></div>
                   <div><label>Image URL</label><input value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} placeholder="https://..." /></div>
+                  <div>
+                    <label>Upload Product Photo</label>
+                    <input type="file" accept="image/*" onChange={handleImageUpload} />
+                    <div className="muted small">Choose a local image to upload, or use an image URL above.</div>
+                  </div>
+                  {productForm.image && (
+                    <div>
+                      <label>Image Preview</label>
+                      <img
+                        className="preview"
+                        src={productForm.image}
+                        alt={`${productForm.name || 'Product'} preview`}
+                      />
+                    </div>
+                  )}
                   <div className="form-row">
                     <label className="checkbox">
                       <input type="checkbox" checked={productForm.featured} onChange={(e) => setProductForm({ ...productForm, featured: e.target.checked })} />
