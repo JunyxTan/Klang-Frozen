@@ -124,7 +124,7 @@ async function requestJSON(url, options = {}) {
   return payload;
 }
 
-function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire }) {
+function ProductCard({ product, qty, onAdd }) {
   const [addQty, setAddQty] = useState(1);
 
   function handleAddQtyChange(e) {
@@ -161,13 +161,6 @@ function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire 
             {qty > 0 && <div className="muted small">In cart: {qty}</div>}
           </div>
           <div className="button-row product-actions">
-            <button
-              className={`btn btn-secondary ${selected ? 'btn-selected' : ''}`}
-              onClick={() => onToggleSelect(product.id)}
-            >
-              {selected ? 'Selected' : 'Select'}
-            </button>
-            <button className="btn btn-secondary" onClick={() => onEnquire(product)}>Enquire</button>
             <input
               className="qty-input"
               type="number"
@@ -179,7 +172,7 @@ function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire 
             />
             <button className="btn icon-btn" onClick={handleAddToCart} aria-label={`Add ${product.name} to cart`}>
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M4.5 7.5A2.5 2.5 0 0 1 7 5h10a2.5 2.5 0 0 1 2.5 2.5v.8a4.5 4.5 0 0 1-1.9 3.66l-2.8 2.02a4.5 4.5 0 0 1-5.22 0L6.78 11.96A4.5 4.5 0 0 1 4.5 8.32V7.5ZM7 7a.5.5 0 0 0-.5.5v.82a2.5 2.5 0 0 0 1.04 2.04l2.8 2.02a2.5 2.5 0 0 0 2.9 0l2.8-2.02a2.5 2.5 0 0 0 1.06-2.04V7.5A.5.5 0 0 0 17 7H7Zm1.25 8.75a1 1 0 1 1 2 0v1.5a1 1 0 1 1-2 0v-1.5Zm5.5 0a1 1 0 1 1 2 0v1.5a1 1 0 1 1-2 0v-1.5Z" />
+                <path d="M3 4a1 1 0 0 1 1-1h1.2a1 1 0 0 1 .97.757L6.6 5.5H20a1 1 0 0 1 .97 1.243l-1.6 6.5A1 1 0 0 1 18.4 14H8a1 1 0 0 1-.97-.757L5.2 6H4a1 1 0 0 1-1-1Zm5.78 8h8.84l1.1-4.5H7.68L8.78 12ZM9 21a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm8 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" />
               </svg>
             </button>
           </div>
@@ -218,7 +211,6 @@ export default function App() {
   const [editingUserId, setEditingUserId] = useState(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [contact, setContact] = useState({ company: '', contactName: '', email: '', phone: '', message: '' });
   const [productsLoading, setProductsLoading] = useState(false);
@@ -348,6 +340,7 @@ export default function App() {
 
   function addToCart(product, quantity = 1) {
     const qtyToAdd = Math.max(1, Number.parseInt(quantity, 10) || 1);
+    setSelectedProduct(product);
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
@@ -362,20 +355,6 @@ export default function App() {
         quantity: qtyToAdd,
       }];
     });
-  }
-
-  function toggleProductSelection(productId) {
-    setSelectedProducts((prev) => (
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
-    ));
-  }
-
-  function addSelectedToCart() {
-    const productsToAdd = products.filter((product) => selectedProducts.includes(product.id));
-    productsToAdd.forEach((product) => addToCart(product));
-    setSelectedProducts([]);
   }
 
   function updateCartQuantity(id, delta) {
@@ -573,13 +552,7 @@ export default function App() {
                   key={product.id}
                   product={product}
                   qty={cart.find((item) => item.id === product.id)?.quantity || 0}
-                  selected={selectedProducts.includes(product.id)}
-                  onToggleSelect={toggleProductSelection}
                   onAdd={addToCart}
-                  onEnquire={(p) => {
-                    setSelectedProduct(p);
-                    navigate(ROUTES.catalogue);
-                  }}
                 />
               ))}
             </div>
@@ -930,13 +903,10 @@ export default function App() {
                 />
               </div>
               <div>
-                <label>Selection and cart actions</label>
+                <label>Cart actions</label>
                 <div className="button-row wrap">
-                  <button type="button" className="btn" onClick={addSelectedToCart} disabled={!selectedProducts.length}>
-                    Add Selected to Cart ({selectedProducts.length})
-                  </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setSelectedProducts([])} disabled={!selectedProducts.length}>
-                    Clear Selection
+                  <button type="button" className="btn btn-secondary" onClick={clearCart} disabled={!cartCount}>
+                    Clear Cart
                   </button>
                 </div>
               </div>
@@ -962,10 +932,7 @@ export default function App() {
                 key={product.id}
                 product={product}
                 qty={cart.find((item) => item.id === product.id)?.quantity || 0}
-                selected={selectedProducts.includes(product.id)}
-                onToggleSelect={toggleProductSelection}
                 onAdd={addToCart}
-                onEnquire={setSelectedProduct}
               />
             ))}
           </div>
@@ -975,7 +942,7 @@ export default function App() {
           <form className="card form-card" onSubmit={submitWhatsApp}>
             <h2>Order via WhatsApp</h2>
             <div className="muted small box">
-              <div><strong>Selected frozen food:</strong> {selectedProduct?.name || 'Choose a product by clicking Enquire'}</div>
+              <div><strong>Selected frozen food:</strong> {selectedProduct?.name || 'Choose a product and add it to cart'}</div>
               <div><strong>Cart items:</strong> {cartCount} item(s)</div>
             </div>
             <div className="grid-2">
