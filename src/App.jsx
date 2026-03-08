@@ -140,11 +140,11 @@ function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire 
         <div className="muted">SKU: {product.sku}</div>
         <p>{product.description}</p>
         <div className="product-footer">
-          <div>
+          <div className="product-price-block">
             <div className="price">{money(product.price)}</div>
             {qty > 0 && <div className="muted small">In cart: {qty}</div>}
           </div>
-          <div className="button-row">
+          <div className="button-row product-actions">
             <button
               className={`btn btn-secondary ${selected ? 'btn-selected' : ''}`}
               onClick={() => onToggleSelect(product.id)}
