@@ -114,7 +114,7 @@ function load(key, fallback) {
   }
 }
 
-function ProductCard({ product, qty, onAdd, onEnquire }) {
+function ProductCard({ product, qty, selected, onToggleSelect, onAdd, onEnquire }) {
   return (
     <div className="card product-card">
       <div className="image-wrap">
@@ -135,6 +135,12 @@ function ProductCard({ product, qty, onAdd, onEnquire }) {
             {qty > 0 && <div className="muted small">In cart: {qty}</div>}
           </div>
           <div className="button-row">
+            <button
+              className={`btn btn-secondary ${selected ? 'btn-selected' : ''}`}
+              onClick={() => onToggleSelect(product.id)}
+            >
+              {selected ? 'Selected' : 'Select'}
+            </button>
             <button className="btn btn-secondary" onClick={() => onEnquire(product)}>Enquire</button>
             <button className="btn" onClick={() => onAdd(product)}>Add to Cart</button>
           </div>
@@ -159,6 +165,7 @@ export default function App() {
   const [editingUserId, setEditingUserId] = useState(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [contact, setContact] = useState({ company: '', contactName: '', email: '', phone: '', message: '' });
 
@@ -181,7 +188,6 @@ export default function App() {
   useEffect(() => { save(STORAGE_KEYS.cart, cart); }, [cart]);
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'Active'), [products]);
-  const catalogueProducts = useMemo(() => products, [products]);
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category).filter(Boolean))], [products]);
   const filteredProducts = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -229,6 +235,20 @@ export default function App() {
       }
       return [...prev, { id: product.id, name: product.name, price: product.price, image: product.image, halal: product.halal, quantity: 1 }];
     });
+  }
+
+  function toggleProductSelection(productId) {
+    setSelectedProducts((prev) => (
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId]
+    ));
+  }
+
+  function addSelectedToCart() {
+    const productsToAdd = products.filter((product) => selectedProducts.includes(product.id));
+    productsToAdd.forEach((product) => addToCart(product));
+    setSelectedProducts([]);
   }
 
   function updateCartQuantity(id, delta) {
@@ -399,6 +419,8 @@ export default function App() {
                   key={product.id}
                   product={product}
                   qty={cart.find((item) => item.id === product.id)?.quantity || 0}
+                  selected={selectedProducts.includes(product.id)}
+                  onToggleSelect={toggleProductSelection}
                   onAdd={addToCart}
                   onEnquire={(p) => {
                     setSelectedProduct(p);
@@ -421,8 +443,7 @@ export default function App() {
           <div className="muted small">Customer product catalogue</div>
         </div>
         <div className="button-row wrap">
-          <button className="btn btn-secondary" onClick={() => navigate(ROUTES.home)}>Homepage</button>
-          <button className="btn">Cart ({cartCount})</button>
+          <button className="btn" onClick={() => document.getElementById('catalogue-cart')?.scrollIntoView({ behavior: 'smooth' })}>Cart ({cartCount})</button>
         </div>
       </header>
 
@@ -440,12 +461,52 @@ export default function App() {
               <div className="muted small">All products with customer cart and enquiry flow.</div>
             </div>
           </div>
+
+          <div className="card selection-panel">
+            <div className="grid-2">
+              <div>
+                <label>Search products</label>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name, SKU, category, or description"
+                />
+              </div>
+              <div>
+                <label>Selection and cart actions</label>
+                <div className="button-row wrap">
+                  <button type="button" className="btn" onClick={addSelectedToCart} disabled={!selectedProducts.length}>
+                    Add Selected to Cart ({selectedProducts.length})
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setSelectedProducts([])} disabled={!selectedProducts.length}>
+                    Clear Selection
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="button-row wrap">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  className={`chip ${categoryFilter === category ? 'chip-active' : ''}`}
+                  onClick={() => setCategoryFilter(category)}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="product-grid">
-            {catalogueProducts.map((product) => (
+            {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 qty={cart.find((item) => item.id === product.id)?.quantity || 0}
+                selected={selectedProducts.includes(product.id)}
+                onToggleSelect={toggleProductSelection}
                 onAdd={addToCart}
                 onEnquire={setSelectedProduct}
               />
@@ -473,7 +534,7 @@ export default function App() {
           </form>
 
           <div className="stack-gap">
-            <div className="card list-card">
+            <div className="card list-card" id="catalogue-cart">
               <h2>Cart Summary</h2>
               <div className="muted small">Add frozen food items and send them together in one enquiry.</div>
               {cart.length === 0 ? (
