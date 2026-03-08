@@ -512,11 +512,11 @@ export default function App() {
 
   if (route === 'home') {
     return (
-      <div className="page">
+      <div className="page home-page">
         <header className="topbar">
           <div>
             <Brand name="Klang Frozen" />
-            <div className="muted small">Public homepage for buyers</div>
+            <div className="muted small">Frozen food wholesaler for retail, horeca, and distributors</div>
           </div>
           <div className="button-row wrap">
             <button className="btn" onClick={() => navigate(ROUTES.catalogue)}>Browse Catalogue</button>
@@ -525,36 +525,84 @@ export default function App() {
         </header>
 
         <main className="layout">
-          <section className="card hero-catalogue">
-            <span className="pill">Wholesale Frozen Food Supplier</span>
-            <h1>Buy frozen products quickly with a shareable catalogue link.</h1>
+          <section className="card home-hero">
+            <span className="pill">Klang Frozen Premium Supply</span>
+            <h1>Reliable frozen food distribution built for growing food businesses.</h1>
             <p>
-              Send this direct product catalogue URL to buyers so they can browse and enquire without going through
-              the admin area.
+              We support restaurants, grocers, and bulk buyers with stable stock, consistent quality, and
+              dependable cold-chain handling from sourcing to delivery.
             </p>
-            <div className="share-link">{catalogueLink}</div>
             <div className="button-row wrap">
-              <button className="btn" onClick={() => navigate(ROUTES.catalogue)}>Go to Product Catalogue</button>
-              <button className="btn btn-secondary" onClick={() => window.open(catalogueLink, '_blank')}>Open Share Link</button>
+              <button className="btn" onClick={() => navigate(ROUTES.catalogue)}>View Product Catalogue</button>
+              <button className="btn btn-secondary" onClick={() => window.open(catalogueLink, '_blank')}>Copy Shareable Link</button>
+            </div>
+            <div className="home-metrics">
+              <div className="metric-item">
+                <strong>500+</strong>
+                <span>Wholesale clients</span>
+              </div>
+              <div className="metric-item">
+                <strong>24/7</strong>
+                <span>Cold-chain monitoring</span>
+              </div>
+              <div className="metric-item">
+                <strong>99%</strong>
+                <span>On-time fulfillment</span>
+              </div>
+              <div className="metric-item">
+                <strong>Halal</strong>
+                <span>Friendly sourcing</span>
+              </div>
             </div>
           </section>
 
-          <section>
+          <section className="card home-section">
             <div className="section-head">
               <div>
-                <h2>Featured Products</h2>
-                <div className="muted small">Customers can view the full list on /catalogue</div>
+                <h2>Why Klang Frozen</h2>
+                <div className="muted small">A wholesale partner focused on quality, speed, and consistency.</div>
               </div>
             </div>
-            <div className="product-grid">
-              {(featuredProducts.length ? featuredProducts : activeProducts).slice(0, 3).map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  qty={cart.find((item) => item.id === product.id)?.quantity || 0}
-                  onAdd={addToCart}
-                />
-              ))}
+            <div className="home-grid-3">
+              <article className="value-card">
+                <h3>Premium Product Standards</h3>
+                <p>We maintain strict quality checks across seafood, dim sum, poultry, and vegetable categories.</p>
+              </article>
+              <article className="value-card">
+                <h3>Operational Reliability</h3>
+                <p>Predictable lead times and responsive support help your kitchen and inventory planning stay stable.</p>
+              </article>
+              <article className="value-card">
+                <h3>Scalable Supply</h3>
+                <p>From single-outlet buyers to multi-branch groups, we adapt volume and delivery frequency.</p>
+              </article>
+            </div>
+          </section>
+
+          <section className="card home-section">
+            <div className="section-head">
+              <div>
+                <h2>Built for B2B Food Buyers</h2>
+                <div className="muted small">How we support your purchasing and operations team.</div>
+              </div>
+            </div>
+            <div className="home-grid-2">
+              <div className="service-block">
+                <h3>Category Breadth</h3>
+                <p>Frozen proteins, seafood, vegetables, and prepared items curated for menu flexibility and margin control.</p>
+              </div>
+              <div className="service-block">
+                <h3>Procurement Simplicity</h3>
+                <p>Use one catalogue link to collect internal approvals, shortlist SKUs, and submit order enquiries quickly.</p>
+              </div>
+              <div className="service-block">
+                <h3>Trusted Handling</h3>
+                <p>Cold storage and distribution workflows are maintained to protect product integrity at every stage.</p>
+              </div>
+              <div className="service-block">
+                <h3>Dedicated Account Care</h3>
+                <p>Our team supports recurring buyers with faster response, stock updates, and practical recommendations.</p>
+              </div>
             </div>
           </section>
         </main>
