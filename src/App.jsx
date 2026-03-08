@@ -443,7 +443,7 @@ export default function App() {
 
   function submitWhatsApp(e) {
     e.preventDefault();
-    const whatsappNumber = '60120000000';
+    const whatsappNumber = '60129665291';
     const lines = [
       'Hello Klang Frozen, I would like to enquire.',
       '',
