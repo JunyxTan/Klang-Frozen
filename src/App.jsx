@@ -1,0 +1,584 @@
+import React, { useEffect, useMemo, useState } from 'react';
+
+const STORAGE_KEYS = {
+  users: 'klang_frozen_users',
+  products: 'klang_frozen_products',
+  session: 'klang_frozen_session',
+  cart: 'klang_frozen_cart',
+};
+
+const defaultUsers = [
+  {
+    id: 1,
+    name: 'Main Admin',
+    email: 'admin@klangfrozen.com',
+    password: 'admin123',
+    role: 'Super Admin',
+    status: 'Active',
+  },
+  {
+    id: 2,
+    name: 'Sales Manager',
+    email: 'manager@klangfrozen.com',
+    password: 'manager123',
+    role: 'Manager',
+    status: 'Active',
+  },
+];
+
+const defaultProducts = [
+  {
+    id: 1,
+    name: 'Premium Frozen Chicken Gyoza',
+    sku: 'KF-CG-001',
+    category: 'Frozen Dim Sum',
+    price: '28.90',
+    description: 'Restaurant-grade frozen chicken gyoza for food service and wholesale buyers.',
+    status: 'Active',
+    featured: true,
+    halal: true,
+    image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    id: 2,
+    name: 'Frozen Breaded Fish Fillet',
+    sku: 'KF-BF-002',
+    category: 'Frozen Seafood',
+    price: '35.50',
+    description: 'Crispy coated fish fillet suitable for cafes, restaurants, and resellers.',
+    status: 'Active',
+    featured: true,
+    halal: true,
+    image: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    id: 3,
+    name: 'Frozen Mixed Vegetables Pack',
+    sku: 'KF-MV-003',
+    category: 'Frozen Vegetables',
+    price: '12.90',
+    description: 'Convenient frozen mixed vegetables for restaurants, caterers, and distributors.',
+    status: 'Active',
+    featured: false,
+    halal: false,
+    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80'
+  }
+];
+
+const emptyProduct = {
+  name: '',
+  sku: '',
+  category: '',
+  price: '',
+  description: '',
+  status: 'Active',
+  featured: false,
+  halal: true,
+  image: '',
+};
+
+const emptyUser = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'Manager',
+  status: 'Active',
+};
+
+function money(value) {
+  return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(Number(value || 0));
+}
+
+function save(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function load(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function ProductCard({ product, qty, onAdd, onEnquire }) {
+  return (
+    <div className="card product-card">
+      <div className="image-wrap">
+        <img src={product.image || 'https://via.placeholder.com/600x400?text=Klang+Frozen'} alt={product.name} />
+      </div>
+      <div className="product-body">
+        <div className="badge-row">
+          <span className="badge secondary">{product.category}</span>
+          {product.featured && <span className="badge">Featured</span>}
+          {product.halal && <span className="badge halal">Halal</span>}
+        </div>
+        <h3>{product.name}</h3>
+        <div className="muted">SKU: {product.sku}</div>
+        <p>{product.description}</p>
+        <div className="product-footer">
+          <div>
+            <div className="price">{money(product.price)}</div>
+            {qty > 0 && <div className="muted small">In cart: {qty}</div>}
+          </div>
+          <div className="button-row">
+            <button className="btn btn-secondary" onClick={() => onEnquire(product)}>Enquire</button>
+            <button className="btn" onClick={() => onAdd(product)}>Add to Cart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [users, setUsers] = useState(defaultUsers);
+  const [products, setProducts] = useState(defaultProducts);
+  const [session, setSession] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [login, setLogin] = useState({ email: 'admin@klangfrozen.com', password: 'admin123' });
+  const [loginError, setLoginError] = useState('');
+  const [view, setView] = useState('admin');
+  const [adminTab, setAdminTab] = useState('products');
+  const [productForm, setProductForm] = useState(emptyProduct);
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [userForm, setUserForm] = useState(emptyUser);
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [contact, setContact] = useState({ company: '', contactName: '', email: '', phone: '', message: '' });
+
+  useEffect(() => {
+    setUsers(load(STORAGE_KEYS.users, defaultUsers));
+    setProducts(load(STORAGE_KEYS.products, defaultProducts));
+    setSession(load(STORAGE_KEYS.session, null));
+    setCart(load(STORAGE_KEYS.cart, []));
+  }, []);
+
+  useEffect(() => { save(STORAGE_KEYS.users, users); }, [users]);
+  useEffect(() => { save(STORAGE_KEYS.products, products); }, [products]);
+  useEffect(() => { save(STORAGE_KEYS.session, session); }, [session]);
+  useEffect(() => { save(STORAGE_KEYS.cart, cart); }, [cart]);
+
+  const activeProducts = useMemo(() => products.filter(p => p.status === 'Active'), [products]);
+  const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);
+  const filteredProducts = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return products.filter((p) => {
+      const matchesCategory = categoryFilter === 'All' || p.category === categoryFilter;
+      const matchesSearch = !q || [p.name, p.sku, p.category, p.description].some(v => String(v).toLowerCase().includes(q));
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, search, categoryFilter]);
+  const featuredProducts = useMemo(() => activeProducts.filter(p => p.featured), [activeProducts]);
+  const cartCount = useMemo(() => cart.reduce((a, b) => a + b.quantity, 0), [cart]);
+  const cartTotal = useMemo(() => cart.reduce((a, b) => a + Number(b.price) * b.quantity, 0), [cart]);
+
+  function handleLogin(e) {
+    e.preventDefault();
+    const user = users.find(
+      (u) => u.email === login.email.trim() && u.password === login.password && u.status === 'Active'
+    );
+    if (!user) {
+      setLoginError('Invalid email or password.');
+      return;
+    }
+    setSession(user);
+    setLoginError('');
+  }
+
+  function logout() {
+    setSession(null);
+  }
+
+  function addToCart(product) {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
+      if (existing) {
+        return prev.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { id: product.id, name: product.name, price: product.price, image: product.image, halal: product.halal, quantity: 1 }];
+    });
+  }
+
+  function updateCartQuantity(id, delta) {
+    setCart((prev) => prev.map((item) => item.id === id ? { ...item, quantity: item.quantity + delta } : item).filter((item) => item.quantity > 0));
+  }
+
+  function clearCart() {
+    setCart([]);
+  }
+
+  function startEditProduct(product) {
+    setProductForm(product);
+    setEditingProductId(product.id);
+  }
+
+  function resetProductForm() {
+    setProductForm(emptyProduct);
+    setEditingProductId(null);
+  }
+
+  function saveProduct(e) {
+    e.preventDefault();
+    if (!productForm.name || !productForm.sku || !productForm.category || !productForm.price) return;
+    if (editingProductId) {
+      setProducts((prev) => prev.map((p) => p.id === editingProductId ? { ...productForm, id: editingProductId } : p));
+    } else {
+      setProducts((prev) => [{ ...productForm, id: Date.now() }, ...prev]);
+    }
+    resetProductForm();
+  }
+
+  function deleteProduct(id) {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function handleImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setProductForm((prev) => ({ ...prev, image: reader.result }));
+    reader.readAsDataURL(file);
+  }
+
+  function startEditUser(user) {
+    setUserForm(user);
+    setEditingUserId(user.id);
+  }
+
+  function resetUserForm() {
+    setUserForm(emptyUser);
+    setEditingUserId(null);
+  }
+
+  function saveUser(e) {
+    e.preventDefault();
+    if (!userForm.name || !userForm.email || !userForm.password) return;
+    if (editingUserId) {
+      setUsers((prev) => prev.map((u) => u.id === editingUserId ? { ...userForm, id: editingUserId } : u));
+      if (session?.id === editingUserId) setSession({ ...userForm, id: editingUserId });
+    } else {
+      setUsers((prev) => [{ ...userForm, id: Date.now() }, ...prev]);
+    }
+    resetUserForm();
+  }
+
+  function deleteUser(id) {
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+    if (session?.id === id) logout();
+  }
+
+  function submitWhatsApp(e) {
+    e.preventDefault();
+    if (!contact.contactName || !contact.email) return;
+    const whatsappNumber = '60120000000';
+    const cartLines = cart.length
+      ? cart.map((item) => `- ${item.name} x${item.quantity} (${money(Number(item.price) * item.quantity)})`).join('\n')
+      : '- No cart items';
+    const text = [
+      'Hello Klang Frozen,',
+      '',
+      'I would like to make an enquiry.',
+      '',
+      `Company: ${contact.company || '-'}`,
+      `Contact Name: ${contact.contactName}`,
+      `Email: ${contact.email}`,
+      `Phone: ${contact.phone || '-'}`,
+      `Selected Product: ${selectedProduct?.name || '-'}`,
+      '',
+      'Cart Items:',
+      cartLines,
+      '',
+      `Estimated Total: ${money(cartTotal)}`,
+      '',
+      `Message: ${contact.message || '-'}`,
+    ].join('\n');
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
+  if (!session) {
+    return (
+      <div className="page auth-page">
+        <div className="hero">
+          <div className="hero-copy">
+            <span className="pill">Klang Frozen</span>
+            <h1>Frozen food website with admin, halal badge, cart, and WhatsApp enquiry.</h1>
+            <p>Manage frozen food products, images, user accounts, and let buyers send enquiries directly to WhatsApp.</p>
+          </div>
+          <form className="card auth-card" onSubmit={handleLogin}>
+            <h2>Admin Login</h2>
+            <p className="muted">Demo accounts:</p>
+            <p className="muted small">admin@klangfrozen.com / admin123</p>
+            <p className="muted small">manager@klangfrozen.com / manager123</p>
+            <label>Email</label>
+            <input value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} />
+            <label>Password</label>
+            <input type="password" value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} />
+            {loginError && <div className="error">{loginError}</div>}
+            <button className="btn wide">Log In</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page">
+      <header className="topbar">
+        <div>
+          <div className="brand">Klang Frozen</div>
+          <div className="muted small">Signed in as {session.name} · {session.role}</div>
+        </div>
+        <div className="button-row">
+          <button className={`btn ${view === 'admin' ? '' : 'btn-secondary'}`} onClick={() => setView('admin')}>Admin Panel</button>
+          <button className={`btn ${view === 'catalogue' ? '' : 'btn-secondary'}`} onClick={() => setView('catalogue')}>Product Page</button>
+          <button className="btn btn-secondary" onClick={() => setView('catalogue')}>Cart ({cartCount})</button>
+          <button className="btn btn-secondary" onClick={logout}>Log Out</button>
+        </div>
+      </header>
+
+      {view === 'admin' ? (
+        <main className="layout">
+          <section className="stats-grid">
+            <div className="card stat"><div className="muted small">Total Products</div><strong>{products.length}</strong></div>
+            <div className="card stat"><div className="muted small">Active Products</div><strong>{activeProducts.length}</strong></div>
+            <div className="card stat"><div className="muted small">Admin Users</div><strong>{users.length}</strong></div>
+            <div className="card stat"><div className="muted small">Cart Items</div><strong>{cartCount}</strong></div>
+          </section>
+
+          <div className="button-row tabs">
+            <button className={`btn ${adminTab === 'products' ? '' : 'btn-secondary'}`} onClick={() => setAdminTab('products')}>Products</button>
+            <button className={`btn ${adminTab === 'users' ? '' : 'btn-secondary'}`} onClick={() => setAdminTab('users')}>Admin Users</button>
+          </div>
+
+          {adminTab === 'products' && (
+            <section className="two-col">
+              <form className="card form-card" onSubmit={saveProduct}>
+                <h2>{editingProductId ? 'Edit Product' : 'Add Product'}</h2>
+                <div className="grid-2">
+                  <div><label>Product Name</label><input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} /></div>
+                  <div><label>SKU</label><input value={productForm.sku} onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })} /></div>
+                </div>
+                <div className="grid-3">
+                  <div><label>Category</label><input value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} /></div>
+                  <div><label>Price (MYR)</label><input value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} /></div>
+                  <div><label>Status</label><input value={productForm.status} onChange={(e) => setProductForm({ ...productForm, status: e.target.value })} /></div>
+                </div>
+                <div><label>Image URL</label><input value={productForm.image} onChange={(e) => setProductForm({ ...productForm, image: e.target.value })} /></div>
+                <div><label>Upload Image</label><input type="file" accept="image/*" onChange={handleImageUpload} /></div>
+                {productForm.image && <img className="preview" src={productForm.image} alt="Preview" />}
+                <div><label>Description</label><textarea rows="4" value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} /></div>
+                <div className="checkbox-row">
+                  <label><input type="checkbox" checked={productForm.featured} onChange={(e) => setProductForm({ ...productForm, featured: e.target.checked })} /> Featured</label>
+                  <label><input type="checkbox" checked={productForm.halal} onChange={(e) => setProductForm({ ...productForm, halal: e.target.checked })} /> Halal</label>
+                </div>
+                <div className="button-row">
+                  <button className="btn">{editingProductId ? 'Update Product' : 'Add Product'}</button>
+                  {editingProductId && <button type="button" className="btn btn-secondary" onClick={resetProductForm}>Cancel</button>}
+                </div>
+              </form>
+
+              <div className="card list-card">
+                <div className="list-head">
+                  <div>
+                    <h2>Product List</h2>
+                    <div className="muted small">Search, filter, edit, and manage your frozen food catalogue.</div>
+                  </div>
+                  <input placeholder="Search product..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+                <div className="button-row wrap gap-sm">
+                  {categories.map((category) => (
+                    <button key={category} className={`chip ${categoryFilter === category ? 'chip-active' : ''}`} onClick={() => setCategoryFilter(category)}>{category}</button>
+                  ))}
+                </div>
+                <div className="list-stack">
+                  {filteredProducts.map((product) => (
+                    <div className="list-item" key={product.id}>
+                      <img src={product.image || 'https://via.placeholder.com/120'} alt={product.name} />
+                      <div className="list-content">
+                        <div className="badge-row">
+                          <strong>{product.name}</strong>
+                          <span className="badge secondary">{product.status}</span>
+                          {product.featured && <span className="badge">Featured</span>}
+                          {product.halal && <span className="badge halal">Halal</span>}
+                        </div>
+                        <div className="muted small">SKU: {product.sku} · {product.category}</div>
+                        <p>{product.description}</p>
+                        <div className="price">{money(product.price)}</div>
+                      </div>
+                      <div className="button-col">
+                        <button className="btn btn-secondary" onClick={() => startEditProduct(product)}>Edit</button>
+                        <button className="btn btn-secondary" onClick={() => deleteProduct(product.id)}>Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {adminTab === 'users' && (
+            <section className="two-col">
+              <form className="card form-card" onSubmit={saveUser}>
+                <h2>{editingUserId ? 'Edit Admin User' : 'Add Admin User'}</h2>
+                <div><label>Full Name</label><input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} /></div>
+                <div className="grid-2">
+                  <div><label>Email</label><input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} /></div>
+                  <div><label>Password</label><input value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} /></div>
+                </div>
+                <div className="grid-2">
+                  <div><label>Role</label><input value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} /></div>
+                  <div><label>Status</label><input value={userForm.status} onChange={(e) => setUserForm({ ...userForm, status: e.target.value })} /></div>
+                </div>
+                <div className="button-row">
+                  <button className="btn">{editingUserId ? 'Update User' : 'Add User'}</button>
+                  {editingUserId && <button type="button" className="btn btn-secondary" onClick={resetUserForm}>Cancel</button>}
+                </div>
+              </form>
+
+              <div className="card list-card">
+                <h2>Admin User List</h2>
+                <div className="list-stack">
+                  {users.map((user) => (
+                    <div className="list-item no-image" key={user.id}>
+                      <div className="list-content">
+                        <div className="badge-row">
+                          <strong>{user.name}</strong>
+                          <span className="badge secondary">{user.role}</span>
+                          <span className="badge">{user.status}</span>
+                        </div>
+                        <div className="muted small">{user.email}</div>
+                      </div>
+                      <div className="button-col">
+                        <button className="btn btn-secondary" onClick={() => startEditUser(user)}>Edit</button>
+                        <button className="btn btn-secondary" onClick={() => deleteUser(user.id)}>Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+        </main>
+      ) : (
+        <main className="layout">
+          <section className="catalogue-hero card hero-catalogue">
+            <span className="pill">Frozen Food Supply</span>
+            <h1>Premium frozen food for retail, horeca, and distribution.</h1>
+            <p>Browse our halal-friendly frozen food catalogue and send your order enquiry directly to WhatsApp.</p>
+          </section>
+
+          <section>
+            <div className="section-head">
+              <div>
+                <h2>Featured Frozen Food</h2>
+                <div className="muted small">Showing active products only</div>
+              </div>
+            </div>
+            <div className="product-grid">
+              {(featuredProducts.length ? featuredProducts : activeProducts).map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  qty={cart.find((item) => item.id === product.id)?.quantity || 0}
+                  onAdd={addToCart}
+                  onEnquire={setSelectedProduct}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <div className="section-head">
+              <div>
+                <h2>Frozen Food Catalogue</h2>
+                <div className="muted small">All active frozen food products in one customer-facing page.</div>
+              </div>
+            </div>
+            <div className="product-grid">
+              {activeProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  qty={cart.find((item) => item.id === product.id)?.quantity || 0}
+                  onAdd={addToCart}
+                  onEnquire={setSelectedProduct}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section className="two-col">
+            <form className="card form-card" onSubmit={submitWhatsApp}>
+              <h2>Order via WhatsApp</h2>
+              <div className="muted small box">
+                <div><strong>Selected frozen food:</strong> {selectedProduct?.name || 'Choose a product by clicking Enquire'}</div>
+                <div><strong>Cart items:</strong> {cartCount} item(s)</div>
+              </div>
+              <div className="grid-2">
+                <div><label>Company</label><input value={contact.company} onChange={(e) => setContact({ ...contact, company: e.target.value })} /></div>
+                <div><label>Contact Name</label><input value={contact.contactName} onChange={(e) => setContact({ ...contact, contactName: e.target.value })} /></div>
+              </div>
+              <div className="grid-2">
+                <div><label>Email</label><input value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} /></div>
+                <div><label>Phone</label><input value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })} /></div>
+              </div>
+              <div><label>Message</label><textarea rows="5" value={contact.message} onChange={(e) => setContact({ ...contact, message: e.target.value })} placeholder="Carton quantity, quotation, halal requirement, storage details, delivery schedule..." /></div>
+              <button className="btn wide">Open WhatsApp</button>
+            </form>
+
+            <div className="stack-gap">
+              <div className="card list-card">
+                <h2>Cart Summary</h2>
+                <div className="muted small">Add frozen food items and send them together in one enquiry.</div>
+                {cart.length === 0 ? (
+                  <div className="empty">Your cart is empty.</div>
+                ) : (
+                  <div className="cart-stack">
+                    {cart.map((item) => (
+                      <div className="cart-item" key={item.id}>
+                        <img src={item.image || 'https://via.placeholder.com/120'} alt={item.name} />
+                        <div className="list-content">
+                          <div className="badge-row">
+                            <strong>{item.name}</strong>
+                            {item.halal && <span className="badge halal">Halal</span>}
+                          </div>
+                          <div className="muted small">{money(item.price)} each</div>
+                          <div className="cart-line">
+                            <div className="button-row">
+                              <button type="button" className="btn btn-secondary square" onClick={() => updateCartQuantity(item.id, -1)}>-</button>
+                              <span>{item.quantity}</span>
+                              <button type="button" className="btn btn-secondary square" onClick={() => updateCartQuantity(item.id, 1)}>+</button>
+                            </div>
+                            <div className="text-right">
+                              <strong>{money(Number(item.price) * item.quantity)}</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="totals box">
+                      <div className="row-between"><span>Total items</span><strong>{cartCount}</strong></div>
+                      <div className="row-between"><span>Estimated total</span><strong>{money(cartTotal)}</strong></div>
+                    </div>
+                    <button type="button" className="btn btn-secondary wide" onClick={clearCart}>Clear Cart</button>
+                  </div>
+                )}
+              </div>
+
+              <div className="card list-card">
+                <h2>Sales Contact</h2>
+                <div className="muted">sales@klangfrozen.com</div>
+                <div className="muted">+60 12-000 0000</div>
+                <div className="muted">Klang, Selangor, Malaysia</div>
+              </div>
+            </div>
+          </section>
+        </main>
+      )}
+    </div>
+  );
+}
