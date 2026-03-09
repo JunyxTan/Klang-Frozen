@@ -1,11 +1,11 @@
 [
   {
     "id": 1,
-    "name": "Premium Frozen Chicken Gyoza",
-    "sku": "KF-CG-001",
-    "category": "Frozen Dim Sum",
-    "price": "28.90",
-    "description": "Restaurant-grade frozen chicken gyoza for food service and wholesale buyers.",
+    "name": "Lamb Shouder",
+    "sku": "Test 1",
+    "category": "Lamb",
+    "price": "30.50",
+    "description": "Yummy lamb shoulder",
     "status": "Active",
     "featured": true,
     "halal": true,
