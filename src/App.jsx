@@ -125,6 +125,17 @@ async function requestJSON(url, options = {}) {
   return payload;
 }
 
+function shouldUseLocalProductsFallback(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    message.includes('missing github_token')
+    || message.includes('read-only file system')
+    || message.includes('erofs')
+    || message.includes('eacces')
+    || message.includes('enoent')
+  );
+}
+
 function ProductCard({ product, qty, onAdd }) {
   const [addQty, setAddQty] = useState(1);
 
@@ -414,6 +425,12 @@ export default function App() {
       }
       return true;
     } catch (error) {
+      if (shouldUseLocalProductsFallback(error)) {
+        setProducts(nextProducts);
+        save(STORAGE_KEYS.products, nextProducts);
+        setProductsError('Products API is not writable in this environment. Saved to local browser storage only.');
+        return true;
+      }
       setProductsError(error.message);
       return false;
     } finally {
