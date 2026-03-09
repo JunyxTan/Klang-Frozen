@@ -1,3 +1,6 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
 const DEFAULT_PRODUCTS = [
   {
     id: 1,
@@ -40,7 +43,12 @@ const DEFAULT_PRODUCTS = [
 function response(statusCode, body) {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+    },
     body: JSON.stringify(body),
   };
 }
@@ -90,10 +98,29 @@ function encodePath(filePath) {
   return filePath.split('/').map((part) => encodeURIComponent(part)).join('/');
 }
 
+function localProductsFilePath() {
+  return path.resolve(process.cwd(), 'data/products.json');
+}
+
+async function readLocalProductsFile() {
+  try {
+    const content = await readFile(localProductsFilePath(), 'utf8');
+    const products = JSON.parse(content);
+    return Array.isArray(products) ? products : DEFAULT_PRODUCTS;
+  } catch {
+    return DEFAULT_PRODUCTS;
+  }
+}
+
+async function writeLocalProductsFile(products) {
+  const content = `${JSON.stringify(products, null, 2)}\n`;
+  await writeFile(localProductsFilePath(), content, 'utf8');
+}
+
 async function readProductsFile() {
   const { owner, repo, branch, path, configured } = repoConfig();
   if (!configured) {
-    return { products: DEFAULT_PRODUCTS, sha: null };
+    return { products: await readLocalProductsFile(), sha: null, source: 'local' };
   }
   const endpoint = `/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(branch)}`;
   try {
@@ -101,10 +128,11 @@ async function readProductsFile() {
     return {
       products: parseProducts(payload.content),
       sha: payload.sha,
+      source: 'github',
     };
   } catch (error) {
     if (String(error.message || '').includes('Not Found')) {
-      return { products: DEFAULT_PRODUCTS, sha: null };
+      return { products: DEFAULT_PRODUCTS, sha: null, source: 'github' };
     }
     throw error;
   }
@@ -122,7 +150,8 @@ function parseProducts(content) {
 async function writeProductsFile({ products, sha, actor = 'admin', action = 'update products' }) {
   const { owner, repo, branch, path, configured } = repoConfig();
   if (!configured) {
-    throw new Error('Product persistence is not configured. Set GITHUB_OWNER and GITHUB_REPO in Netlify environment variables.');
+    await writeLocalProductsFile(products);
+    return { source: 'local' };
   }
   const endpoint = `/repos/${owner}/${repo}/contents/${encodePath(path)}`;
   const content = `${JSON.stringify(products, null, 2)}\n`;

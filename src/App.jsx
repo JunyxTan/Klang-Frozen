@@ -117,7 +117,7 @@ function load(key, fallback) {
 }
 
 async function requestJSON(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { cache: 'no-store', ...options });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(payload.error || 'Request failed.');
@@ -226,30 +226,35 @@ export default function App() {
     setProducts(load(STORAGE_KEYS.products, defaultProducts));
   }, []);
 
+  async function syncProductsFromRepo() {
+    setProductsLoading(true);
+    setProductsError('');
+    try {
+      const payload = await requestJSON(PRODUCTS_API);
+      if (Array.isArray(payload.products)) {
+        setProducts(payload.products);
+        save(STORAGE_KEYS.products, payload.products);
+      } else {
+        throw new Error('Invalid products payload.');
+      }
+      return payload.products;
+    } catch (error) {
+      const cachedProducts = load(STORAGE_KEYS.products, defaultProducts);
+      setProducts(cachedProducts);
+      setProductsError(`${error.message} Using locally cached products.`);
+      return null;
+    } finally {
+      setProductsLoading(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
-    async function syncProductsFromRepo() {
-      setProductsLoading(true);
-      setProductsError('');
-      try {
-        const payload = await requestJSON(PRODUCTS_API);
-        if (!active) return;
-        if (Array.isArray(payload.products)) {
-          setProducts(payload.products);
-          save(STORAGE_KEYS.products, payload.products);
-        } else {
-          throw new Error('Invalid products payload.');
-        }
-      } catch (error) {
-        if (!active) return;
-        const cachedProducts = load(STORAGE_KEYS.products, defaultProducts);
-        setProducts(cachedProducts);
-        setProductsError(`${error.message} Using locally cached products.`);
-      } finally {
-        if (active) setProductsLoading(false);
-      }
-    }
-    syncProductsFromRepo();
+    (async () => {
+      const nextProducts = await syncProductsFromRepo();
+      if (!active || !nextProducts) return;
+      setProducts(nextProducts);
+    })();
     return () => {
       active = false;
     };
@@ -403,7 +408,10 @@ export default function App() {
       if (!Array.isArray(payload.products)) {
         throw new Error('Failed to persist product updates.');
       }
-      setProducts(payload.products);
+      const latestProducts = await syncProductsFromRepo();
+      if (!latestProducts) {
+        throw new Error('Product was saved but latest list could not be loaded. Please refresh.');
+      }
       return true;
     } catch (error) {
       setProductsError(error.message);
