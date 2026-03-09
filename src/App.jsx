@@ -4,7 +4,6 @@ const STORAGE_KEYS = {
   users: 'klang_frozen_users',
   session: 'klang_frozen_session',
   cart: 'klang_frozen_cart',
-  products: 'klang_frozen_products',
 };
 
 const defaultUsers = [
@@ -125,17 +124,6 @@ async function requestJSON(url, options = {}) {
   return payload;
 }
 
-function shouldUseLocalProductsFallback(error) {
-  const message = String(error?.message || '').toLowerCase();
-  return (
-    message.includes('missing github_token')
-    || message.includes('read-only file system')
-    || message.includes('erofs')
-    || message.includes('eacces')
-    || message.includes('enoent')
-  );
-}
-
 function ProductCard({ product, qty, onAdd }) {
   const [addQty, setAddQty] = useState(1);
 
@@ -210,7 +198,7 @@ function Brand({ name }) {
 
 export default function App() {
   const [users, setUsers] = useState(defaultUsers);
-  const [products, setProducts] = useState(() => load(STORAGE_KEYS.products, defaultProducts));
+  const [products, setProducts] = useState(defaultProducts);
   const [session, setSession] = useState(null);
   const [cart, setCart] = useState([]);
   const [route, setRoute] = useState(() => getRoute(window.location.pathname));
@@ -234,7 +222,6 @@ export default function App() {
     setUsers(load(STORAGE_KEYS.users, defaultUsers));
     setSession(load(STORAGE_KEYS.session, null));
     setCart(load(STORAGE_KEYS.cart, []));
-    setProducts(load(STORAGE_KEYS.products, defaultProducts));
   }, []);
 
   async function syncProductsFromRepo() {
@@ -244,15 +231,12 @@ export default function App() {
       const payload = await requestJSON(PRODUCTS_API);
       if (Array.isArray(payload.products)) {
         setProducts(payload.products);
-        save(STORAGE_KEYS.products, payload.products);
       } else {
         throw new Error('Invalid products payload.');
       }
       return payload.products;
     } catch (error) {
-      const cachedProducts = load(STORAGE_KEYS.products, defaultProducts);
-      setProducts(cachedProducts);
-      setProductsError(`${error.message} Using locally cached products.`);
+      setProductsError(error.message);
       return null;
     } finally {
       setProductsLoading(false);
@@ -280,7 +264,6 @@ export default function App() {
   useEffect(() => { save(STORAGE_KEYS.users, users); }, [users]);
   useEffect(() => { save(STORAGE_KEYS.session, session); }, [session]);
   useEffect(() => { save(STORAGE_KEYS.cart, cart); }, [cart]);
-  useEffect(() => { save(STORAGE_KEYS.products, products); }, [products]);
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'Active'), [products]);
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category).filter(Boolean))], [products]);
@@ -403,34 +386,65 @@ export default function App() {
     setEditingProductId(null);
   }
 
-  async function persistProducts(nextProducts, actionLabel) {
+  async function createProductRequest(product) {
+    setProductsSaving(true);
+    setProductsError('');
+    try {
+      const payload = await requestJSON(PRODUCTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product),
+      });
+      if (!Array.isArray(payload.products)) {
+        throw new Error('Failed to save product.');
+      }
+      setProducts(payload.products);
+      return true;
+    } catch (error) {
+      setProductsError(error.message);
+      return false;
+    } finally {
+      setProductsSaving(false);
+    }
+  }
+
+  async function updateProductRequest(product) {
     setProductsSaving(true);
     setProductsError('');
     try {
       const payload = await requestJSON(PRODUCTS_API, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          products: nextProducts,
-          actor: session?.email || 'admin@klangfrozen.com',
-          action: actionLabel,
-        }),
+        body: JSON.stringify(product),
       });
       if (!Array.isArray(payload.products)) {
-        throw new Error('Failed to persist product updates.');
+        throw new Error('Failed to update product.');
       }
-      const latestProducts = await syncProductsFromRepo();
-      if (!latestProducts) {
-        throw new Error('Product was saved but latest list could not be loaded. Please refresh.');
-      }
+      setProducts(payload.products);
       return true;
     } catch (error) {
-      if (shouldUseLocalProductsFallback(error)) {
-        setProducts(nextProducts);
-        save(STORAGE_KEYS.products, nextProducts);
-        setProductsError('Products API is not writable in this environment. Saved to local browser storage only.');
-        return true;
+      setProductsError(error.message);
+      return false;
+    } finally {
+      setProductsSaving(false);
+    }
+  }
+
+  async function deleteProductRequest(id) {
+    setProductsSaving(true);
+    setProductsError('');
+    try {
+      const payload = await requestJSON(PRODUCTS_API, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (!Array.isArray(payload.products)) {
+        throw new Error('Failed to delete product.');
       }
+      setProducts(payload.products);
+      return true;
+    } catch (error) {
       setProductsError(error.message);
       return false;
     } finally {
@@ -441,17 +455,15 @@ export default function App() {
   async function saveProduct(e) {
     e.preventDefault();
     if (!productForm.name || !productForm.sku || !productForm.category || !productForm.price) return;
-    const nextProducts = editingProductId
-      ? products.map((p) => (p.id === editingProductId ? { ...productForm, id: editingProductId } : p))
-      : [{ ...productForm, id: Date.now() }, ...products];
-    const ok = await persistProducts(nextProducts, editingProductId ? 'update product' : 'create product');
+    const ok = editingProductId
+      ? await updateProductRequest({ ...productForm, id: editingProductId })
+      : await createProductRequest(productForm);
     if (!ok) return;
     resetProductForm();
   }
 
   async function deleteProduct(id) {
-    const nextProducts = products.filter((p) => p.id !== id);
-    await persistProducts(nextProducts, 'delete product');
+    await deleteProductRequest(id);
   }
 
   function handleImageUpload(e) {

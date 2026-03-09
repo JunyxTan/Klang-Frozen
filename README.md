@@ -57,5 +57,6 @@ Set these Netlify environment variables:
 - `GITHUB_PRODUCTS_PATH`: file path for products JSON (default: `data/products.json`)
 
 Notes:
-- Without these variables, the app falls back to cached/local products and shows an error banner in Product Management.
-- Once configured, product create/update/delete in Admin writes directly to the repo file so all devices load the same product list.
+- Product reads and writes are handled by `/.netlify/functions/products` using GitHub Contents API with file SHA checks.
+- Without these variables, product requests fail with a configuration error (no frontend secret exposure).
+- Once configured, product create/update/delete in Admin commits directly to the repo file so all devices load the same product list after refresh.

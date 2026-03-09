@@ -1,44 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-
-const DEFAULT_PRODUCTS = [
-  {
-    id: 1,
-    name: 'Premium Frozen Chicken Gyoza',
-    sku: 'KF-CG-001',
-    category: 'Frozen Dim Sum',
-    price: '28.90',
-    description: 'Restaurant-grade frozen chicken gyoza for food service and wholesale buyers.',
-    status: 'Active',
-    featured: true,
-    halal: true,
-    image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: 2,
-    name: 'Frozen Breaded Fish Fillet',
-    sku: 'KF-BF-002',
-    category: 'Frozen Seafood',
-    price: '35.50',
-    description: 'Crispy coated fish fillet suitable for cafes, restaurants, and resellers.',
-    status: 'Active',
-    featured: true,
-    halal: true,
-    image: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    id: 3,
-    name: 'Frozen Mixed Vegetables Pack',
-    sku: 'KF-MV-003',
-    category: 'Frozen Vegetables',
-    price: '12.90',
-    description: 'Convenient frozen mixed vegetables for restaurants, caterers, and distributors.',
-    status: 'Active',
-    featured: false,
-    halal: false,
-    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
-  },
-];
+const REQUIRED_ENV_VARS = ['GITHUB_TOKEN', 'GITHUB_OWNER', 'GITHUB_REPO'];
 
 function response(statusCode, body) {
   return {
@@ -65,132 +25,189 @@ function encodeBase64(content = '') {
   return Buffer.from(content, 'utf8').toString('base64');
 }
 
-async function githubRequest(path, init = {}) {
-  const token = env('GITHUB_TOKEN');
-  if (!token) {
-    throw new Error('Missing GITHUB_TOKEN.');
-  }
-  const res = await fetch(`https://api.github.com${path}`, {
-    ...init,
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-      ...(init.headers || {}),
-    },
-  });
-  const payload = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(payload.message || 'GitHub API request failed.');
-  }
-  return payload;
-}
-
-function repoConfig() {
-  const owner = env('GITHUB_OWNER');
-  const repo = env('GITHUB_REPO');
-  const branch = env('GITHUB_BRANCH', 'main');
-  const path = env('GITHUB_PRODUCTS_PATH', 'data/products.json');
-  return { owner, repo, branch, path, configured: Boolean(owner && repo) };
-}
-
 function encodePath(filePath) {
   return filePath.split('/').map((part) => encodeURIComponent(part)).join('/');
 }
 
-function localProductsFilePath() {
-  return path.resolve(process.cwd(), 'data/products.json');
+function getConfig() {
+  const config = {
+    token: env('GITHUB_TOKEN'),
+    owner: env('GITHUB_OWNER'),
+    repo: env('GITHUB_REPO'),
+    branch: env('GITHUB_BRANCH', 'main'),
+    productsPath: env('GITHUB_PRODUCTS_PATH', 'data/products.json'),
+  };
+
+  const missing = REQUIRED_ENV_VARS.filter((key) => !config[key.toLowerCase().replace('github_', '')]);
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variable(s): ${missing.join(', ')}`);
+  }
+
+  return config;
 }
 
-async function readLocalProductsFile() {
+async function githubRequest(config, endpoint, init = {}) {
+  const res = await fetch(`https://api.github.com${endpoint}`, {
+    ...init,
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${config.token}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(init.headers || {}),
+    },
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = payload?.message || 'GitHub API request failed.';
+    throw new Error(`${res.status} ${message}`);
+  }
+
+  return payload;
+}
+
+function normalizeProducts(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({ ...item }));
+}
+
+async function readProductsFromGitHub(config) {
+  const endpoint = `/repos/${config.owner}/${config.repo}/contents/${encodePath(config.productsPath)}?ref=${encodeURIComponent(config.branch)}`;
+  const payload = await githubRequest(config, endpoint);
+
+  let parsed = [];
   try {
-    const content = await readFile(localProductsFilePath(), 'utf8');
-    const products = JSON.parse(content);
-    return Array.isArray(products) ? products : DEFAULT_PRODUCTS;
+    parsed = JSON.parse(decodeBase64(payload.content || ''));
   } catch {
-    return DEFAULT_PRODUCTS;
+    throw new Error(`Failed to parse JSON from ${config.productsPath}.`);
   }
+
+  return {
+    sha: payload.sha,
+    products: normalizeProducts(parsed),
+  };
 }
 
-async function writeLocalProductsFile(products) {
-  const content = `${JSON.stringify(products, null, 2)}\n`;
-  await writeFile(localProductsFilePath(), content, 'utf8');
-}
-
-async function readProductsFile() {
-  const { owner, repo, branch, path, configured } = repoConfig();
-  if (!configured) {
-    return { products: await readLocalProductsFile(), sha: null, source: 'local' };
-  }
-  const endpoint = `/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(branch)}`;
-  try {
-    const payload = await githubRequest(endpoint);
-    return {
-      products: parseProducts(payload.content),
-      sha: payload.sha,
-      source: 'github',
-    };
-  } catch (error) {
-    if (String(error.message || '').includes('Not Found')) {
-      return { products: DEFAULT_PRODUCTS, sha: null, source: 'github' };
+function nextNumericId(products) {
+  const maxId = products.reduce((max, product) => {
+    const id = Number.parseInt(product.id, 10);
+    if (Number.isFinite(id)) {
+      return Math.max(max, id);
     }
-    throw error;
-  }
+    return max;
+  }, 0);
+  return maxId + 1;
 }
 
-function parseProducts(content) {
-  try {
-    const parsed = JSON.parse(decodeBase64(content || ''));
-    return Array.isArray(parsed) ? parsed : DEFAULT_PRODUCTS;
-  } catch {
-    return DEFAULT_PRODUCTS;
-  }
-}
-
-async function writeProductsFile({ products, sha, actor = 'admin', action = 'update products' }) {
-  const { owner, repo, branch, path, configured } = repoConfig();
-  if (!configured) {
-    await writeLocalProductsFile(products);
-    return { source: 'local' };
-  }
-  const endpoint = `/repos/${owner}/${repo}/contents/${encodePath(path)}`;
+async function writeProductsToGitHub(config, products, sha, message) {
+  const endpoint = `/repos/${config.owner}/${config.repo}/contents/${encodePath(config.productsPath)}`;
   const content = `${JSON.stringify(products, null, 2)}\n`;
-  return githubRequest(endpoint, {
+
+  await githubRequest(config, endpoint, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      message: `chore(products): ${action} by ${actor}`,
+      message,
       content: encodeBase64(content),
-      branch,
-      ...(sha ? { sha } : {}),
+      sha,
+      branch: config.branch,
     }),
   });
 }
 
+function parseBody(event) {
+  try {
+    return JSON.parse(event.body || '{}');
+  } catch {
+    throw new Error('Invalid JSON payload.');
+  }
+}
+
+function methodNotAllowed() {
+  return response(405, { error: 'Method not allowed.' });
+}
+
 export async function handler(event) {
+  let config;
+  try {
+    config = getConfig();
+  } catch (error) {
+    console.error('Products function configuration error:', error);
+    return response(500, { error: error.message || 'Missing configuration.' });
+  }
+
   try {
     if (event.httpMethod === 'GET') {
-      const { products } = await readProductsFile();
+      const { products } = await readProductsFromGitHub(config);
       return response(200, { products });
     }
 
-    if (event.httpMethod === 'PUT') {
-      const body = JSON.parse(event.body || '{}');
-      if (!Array.isArray(body.products)) {
-        return response(400, { error: '`products` must be an array.' });
-      }
-      const current = await readProductsFile();
-      await writeProductsFile({
-        products: body.products,
-        sha: current.sha,
-        actor: body.actor || 'admin',
-        action: body.action || 'update products',
-      });
-      return response(200, { products: body.products });
+    if (!['POST', 'PUT', 'DELETE'].includes(event.httpMethod)) {
+      return methodNotAllowed();
     }
 
-    return response(405, { error: 'Method not allowed.' });
+    const { products, sha } = await readProductsFromGitHub(config);
+    const body = parseBody(event);
+
+    if (event.httpMethod === 'POST') {
+      if (!body?.name || !body?.sku || !body?.category || !body?.price) {
+        return response(400, { error: 'Missing required product fields.' });
+      }
+
+      const newProduct = {
+        ...body,
+        id: body.id ?? nextNumericId(products),
+      };
+      const nextProducts = [newProduct, ...products];
+      await writeProductsToGitHub(config, nextProducts, sha, `create product: ${newProduct.name}`);
+      return response(201, { product: newProduct, products: nextProducts });
+    }
+
+    if (event.httpMethod === 'PUT') {
+      if (body?.id === undefined || body?.id === null) {
+        return response(400, { error: '`id` is required for updates.' });
+      }
+
+      let updatedProduct = null;
+      const nextProducts = products.map((product) => {
+        if (String(product.id) !== String(body.id)) {
+          return product;
+        }
+        updatedProduct = { ...product, ...body, id: product.id };
+        return updatedProduct;
+      });
+
+      if (!updatedProduct) {
+        return response(404, { error: 'Product not found.' });
+      }
+
+      await writeProductsToGitHub(config, nextProducts, sha, `update product: ${updatedProduct.name}`);
+      return response(200, { product: updatedProduct, products: nextProducts });
+    }
+
+    if (event.httpMethod === 'DELETE') {
+      if (body?.id === undefined || body?.id === null) {
+        return response(400, { error: '`id` is required for delete.' });
+      }
+
+      const target = products.find((product) => String(product.id) === String(body.id));
+      if (!target) {
+        return response(404, { error: 'Product not found.' });
+      }
+
+      const nextProducts = products.filter((product) => String(product.id) !== String(body.id));
+      await writeProductsToGitHub(config, nextProducts, sha, `delete product: ${target.name}`);
+      return response(200, { product: target, products: nextProducts });
+    }
+
+    return methodNotAllowed();
   } catch (error) {
-    return response(500, { error: error.message || 'Internal error.' });
+    console.error('Products function error:', error);
+    return response(500, { error: error.message || 'Internal server error.' });
   }
 }
