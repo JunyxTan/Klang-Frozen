@@ -1,10 +1,10 @@
 [
   {
-    "name": "T",
-    "sku": "Rt",
-    "category": "Egg",
-    "price": "15",
-    "description": "Ref",
+    "name": "Slice",
+    "sku": "Test 3",
+    "category": "Meat",
+    "price": "16.80",
+    "description": "Meat",
     "status": "Active",
     "featured": false,
     "halal": true,
