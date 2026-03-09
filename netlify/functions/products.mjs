@@ -98,9 +98,8 @@ async function readProductsFile() {
   const endpoint = `/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(branch)}`;
   try {
     const payload = await githubRequest(endpoint);
-    const parsed = JSON.parse(decodeBase64(payload.content));
     return {
-      products: Array.isArray(parsed) ? parsed : DEFAULT_PRODUCTS,
+      products: parseProducts(payload.content),
       sha: payload.sha,
     };
   } catch (error) {
@@ -108,6 +107,15 @@ async function readProductsFile() {
       return { products: DEFAULT_PRODUCTS, sha: null };
     }
     throw error;
+  }
+}
+
+function parseProducts(content) {
+  try {
+    const parsed = JSON.parse(decodeBase64(content || ''));
+    return Array.isArray(parsed) ? parsed : DEFAULT_PRODUCTS;
+  } catch {
+    return DEFAULT_PRODUCTS;
   }
 }
 
