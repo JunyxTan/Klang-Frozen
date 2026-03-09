@@ -4,6 +4,7 @@ const STORAGE_KEYS = {
   users: 'klang_frozen_users',
   session: 'klang_frozen_session',
   cart: 'klang_frozen_cart',
+  products: 'klang_frozen_products',
 };
 
 const defaultUsers = [
@@ -198,7 +199,7 @@ function Brand({ name }) {
 
 export default function App() {
   const [users, setUsers] = useState(defaultUsers);
-  const [products, setProducts] = useState(defaultProducts);
+  const [products, setProducts] = useState(() => load(STORAGE_KEYS.products, defaultProducts));
   const [session, setSession] = useState(null);
   const [cart, setCart] = useState([]);
   const [route, setRoute] = useState(() => getRoute(window.location.pathname));
@@ -222,6 +223,7 @@ export default function App() {
     setUsers(load(STORAGE_KEYS.users, defaultUsers));
     setSession(load(STORAGE_KEYS.session, null));
     setCart(load(STORAGE_KEYS.cart, []));
+    setProducts(load(STORAGE_KEYS.products, defaultProducts));
   }, []);
 
   useEffect(() => {
@@ -234,13 +236,15 @@ export default function App() {
         if (!active) return;
         if (Array.isArray(payload.products)) {
           setProducts(payload.products);
+          save(STORAGE_KEYS.products, payload.products);
         } else {
           throw new Error('Invalid products payload.');
         }
       } catch (error) {
         if (!active) return;
-        setProducts(defaultProducts);
-        setProductsError(`${error.message} Using default repository products.`);
+        const cachedProducts = load(STORAGE_KEYS.products, defaultProducts);
+        setProducts(cachedProducts);
+        setProductsError(`${error.message} Using locally cached products.`);
       } finally {
         if (active) setProductsLoading(false);
       }
@@ -260,6 +264,7 @@ export default function App() {
   useEffect(() => { save(STORAGE_KEYS.users, users); }, [users]);
   useEffect(() => { save(STORAGE_KEYS.session, session); }, [session]);
   useEffect(() => { save(STORAGE_KEYS.cart, cart); }, [cart]);
+  useEffect(() => { save(STORAGE_KEYS.products, products); }, [products]);
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'Active'), [products]);
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category).filter(Boolean))], [products]);
