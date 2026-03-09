@@ -90,7 +90,21 @@ const ROUTES = {
   admin: '/admin',
 };
 const COMPANY_LOGO = '/company-logo.png';
-const PRODUCTS_API = '/.netlify/functions/products';
+const PRODUCTS_API_PATH = '/.netlify/functions/products';
+
+function resolveProductsApi() {
+  const override = import.meta.env.VITE_PRODUCTS_API;
+  if (override) return override;
+
+  const { hostname, port, origin } = window.location;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  if (isLocalhost && port !== '8888') {
+    return `http://localhost:8888${PRODUCTS_API_PATH}`;
+  }
+
+  return `${origin}${PRODUCTS_API_PATH}`;
+}
+
 
 function getRoute(pathname) {
   if (pathname.startsWith(ROUTES.admin)) return 'admin';
@@ -117,10 +131,19 @@ function load(key, fallback) {
 
 async function requestJSON(url, options = {}) {
   const response = await fetch(url, { cache: 'no-store', ...options });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.error || 'Request failed.');
+  const text = await response.text();
+  let payload = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = {};
   }
+
+  if (!response.ok) {
+    const backendMessage = payload.error || payload.message || text;
+    throw new Error(backendMessage || `Request failed with status ${response.status}.`);
+  }
+
   return payload;
 }
 
@@ -228,7 +251,7 @@ export default function App() {
     setProductsLoading(true);
     setProductsError('');
     try {
-      const payload = await requestJSON(PRODUCTS_API);
+      const payload = await requestJSON(resolveProductsApi());
       if (Array.isArray(payload.products)) {
         setProducts(payload.products);
       } else {
@@ -236,7 +259,7 @@ export default function App() {
       }
       return payload.products;
     } catch (error) {
-      setProductsError(error.message);
+      setProductsError(`Product request failed. ${error.message}`.trim());
       return null;
     } finally {
       setProductsLoading(false);
@@ -390,7 +413,7 @@ export default function App() {
     setProductsSaving(true);
     setProductsError('');
     try {
-      const payload = await requestJSON(PRODUCTS_API, {
+      const payload = await requestJSON(resolveProductsApi(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(product),
@@ -401,7 +424,7 @@ export default function App() {
       setProducts(payload.products);
       return true;
     } catch (error) {
-      setProductsError(error.message);
+      setProductsError(`Add new product request failed. ${error.message}`.trim());
       return false;
     } finally {
       setProductsSaving(false);
@@ -412,7 +435,7 @@ export default function App() {
     setProductsSaving(true);
     setProductsError('');
     try {
-      const payload = await requestJSON(PRODUCTS_API, {
+      const payload = await requestJSON(resolveProductsApi(), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(product),
@@ -434,7 +457,7 @@ export default function App() {
     setProductsSaving(true);
     setProductsError('');
     try {
-      const payload = await requestJSON(PRODUCTS_API, {
+      const payload = await requestJSON(resolveProductsApi(), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
