@@ -29,7 +29,7 @@
     "sku": "Test 3",
     "category": "Meat",
     "price": "16.80",
-    "description": "Convenient frozen mixed vegetables for restaurants, caterers, and distributors.",
+    "description": "",
     "status": "Active",
     "featured": false,
     "halal": false,
