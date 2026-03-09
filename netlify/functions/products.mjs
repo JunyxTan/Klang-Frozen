@@ -83,10 +83,7 @@ function repoConfig() {
   const repo = env('GITHUB_REPO');
   const branch = env('GITHUB_BRANCH', 'main');
   const path = env('GITHUB_PRODUCTS_PATH', 'data/products.json');
-  if (!owner || !repo) {
-    throw new Error('Missing GITHUB_OWNER or GITHUB_REPO.');
-  }
-  return { owner, repo, branch, path };
+  return { owner, repo, branch, path, configured: Boolean(owner && repo) };
 }
 
 function encodePath(filePath) {
@@ -94,7 +91,10 @@ function encodePath(filePath) {
 }
 
 async function readProductsFile() {
-  const { owner, repo, branch, path } = repoConfig();
+  const { owner, repo, branch, path, configured } = repoConfig();
+  if (!configured) {
+    return { products: DEFAULT_PRODUCTS, sha: null };
+  }
   const endpoint = `/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(branch)}`;
   try {
     const payload = await githubRequest(endpoint);
@@ -102,24 +102,23 @@ async function readProductsFile() {
     return {
       products: Array.isArray(parsed) ? parsed : DEFAULT_PRODUCTS,
       sha: payload.sha,
-      path,
-      branch,
-      owner,
-      repo,
     };
   } catch (error) {
     if (String(error.message || '').includes('Not Found')) {
-      return { products: DEFAULT_PRODUCTS, sha: null, path, branch, owner, repo };
+      return { products: DEFAULT_PRODUCTS, sha: null };
     }
     throw error;
   }
 }
 
 async function writeProductsFile({ products, sha, actor = 'admin', action = 'update products' }) {
-  const { owner, repo, branch, path } = repoConfig();
+  const { owner, repo, branch, path, configured } = repoConfig();
+  if (!configured) {
+    throw new Error('Product persistence is not configured. Set GITHUB_OWNER and GITHUB_REPO in Netlify environment variables.');
+  }
   const endpoint = `/repos/${owner}/${repo}/contents/${encodePath(path)}`;
   const content = `${JSON.stringify(products, null, 2)}\n`;
-  const payload = await githubRequest(endpoint, {
+  return githubRequest(endpoint, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -129,18 +128,17 @@ async function writeProductsFile({ products, sha, actor = 'admin', action = 'upd
       ...(sha ? { sha } : {}),
     }),
   });
-  return payload;
 }
 
-export default async (request) => {
+export async function handler(event) {
   try {
-    if (request.httpMethod === 'GET') {
+    if (event.httpMethod === 'GET') {
       const { products } = await readProductsFile();
       return response(200, { products });
     }
 
-    if (request.httpMethod === 'PUT') {
-      const body = JSON.parse(request.body || '{}');
+    if (event.httpMethod === 'PUT') {
+      const body = JSON.parse(event.body || '{}');
       if (!Array.isArray(body.products)) {
         return response(400, { error: '`products` must be an array.' });
       }
@@ -158,4 +156,4 @@ export default async (request) => {
   } catch (error) {
     return response(500, { error: error.message || 'Internal error.' });
   }
-};
+}
