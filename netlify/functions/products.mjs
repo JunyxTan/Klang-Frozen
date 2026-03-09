@@ -21,6 +21,29 @@ function decodeBase64(content = '') {
   return Buffer.from(content.replace(/\n/g, ''), 'base64').toString('utf8');
 }
 
+async function decodeProductsPayload(config, payload) {
+  if (payload.encoding === 'base64' && payload.content) {
+    return decodeBase64(payload.content);
+  }
+
+  if (payload.download_url) {
+    const res = await fetch(payload.download_url, {
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        Accept: 'application/vnd.github.raw+json',
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Unable to download ${config.productsPath}.`);
+    }
+
+    return res.text();
+  }
+
+  throw new Error(`Unable to read ${config.productsPath} from GitHub.`);
+}
+
 function encodeBase64(content = '') {
   return Buffer.from(content, 'utf8').toString('base64');
 }
@@ -79,10 +102,11 @@ function normalizeProducts(input) {
 async function readProductsFromGitHub(config) {
   const endpoint = `/repos/${config.owner}/${config.repo}/contents/${encodePath(config.productsPath)}?ref=${encodeURIComponent(config.branch)}`;
   const payload = await githubRequest(config, endpoint);
+  const content = await decodeProductsPayload(config, payload);
 
   let parsed = [];
   try {
-    parsed = JSON.parse(decodeBase64(payload.content || ''));
+    parsed = JSON.parse(content);
   } catch {
     throw new Error(`Failed to parse JSON from ${config.productsPath}.`);
   }
