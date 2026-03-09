@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_KEYS = {
   users: 'klang_frozen_users',
@@ -213,6 +213,7 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [contact, setContact] = useState({ company: '', contactName: '', email: '', phone: '', message: '' });
+  const orderFormRef = useRef(null);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsSaving, setProductsSaving] = useState(false);
   const [productsError, setProductsError] = useState('');
@@ -481,6 +482,20 @@ export default function App() {
       `Estimated Total: ${money(cartTotal)}`,
     ];
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+  }
+
+  function promptOrderViaWhatsApp() {
+    orderFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const firstEmptyField = [
+      'input[name="contactName"]',
+      'input[name="company"]',
+      'input[name="email"]',
+      'input[name="phone"]',
+      'textarea[name="message"]',
+    ].map((selector) => orderFormRef.current?.querySelector(selector)).find((field) => field && !field.value?.trim());
+    window.setTimeout(() => {
+      (firstEmptyField || orderFormRef.current?.querySelector('input, textarea'))?.focus();
+    }, 200);
   }
 
   if (route === 'admin' && !session) {
@@ -1121,21 +1136,21 @@ export default function App() {
         </section>
 
         <section className="two-col">
-          <form className="card form-card" onSubmit={submitWhatsApp}>
+          <form className="card form-card" id="order-via-whatsapp" ref={orderFormRef} onSubmit={submitWhatsApp}>
             <h2>Order via WhatsApp</h2>
             <div className="muted small box">
               <div><strong>Selected frozen food:</strong> {selectedProduct?.name || 'Choose a product and add it to cart'}</div>
               <div><strong>Cart items:</strong> {cartCount} item(s)</div>
             </div>
             <div className="grid-2">
-              <div><label>Company</label><input value={contact.company} onChange={(e) => setContact({ ...contact, company: e.target.value })} /></div>
-              <div><label>Contact Name</label><input value={contact.contactName} onChange={(e) => setContact({ ...contact, contactName: e.target.value })} /></div>
+              <div><label>Company</label><input name="company" value={contact.company} onChange={(e) => setContact({ ...contact, company: e.target.value })} /></div>
+              <div><label>Contact Name</label><input name="contactName" value={contact.contactName} onChange={(e) => setContact({ ...contact, contactName: e.target.value })} /></div>
             </div>
             <div className="grid-2">
-              <div><label>Email</label><input value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} /></div>
-              <div><label>Phone</label><input value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })} /></div>
+              <div><label>Email</label><input name="email" value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} /></div>
+              <div><label>Phone</label><input name="phone" value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })} /></div>
             </div>
-            <div><label>Message</label><textarea rows="5" value={contact.message} onChange={(e) => setContact({ ...contact, message: e.target.value })} placeholder="Carton quantity, quotation, halal requirement, storage details, delivery schedule..." /></div>
+            <div><label>Message</label><textarea name="message" rows="5" value={contact.message} onChange={(e) => setContact({ ...contact, message: e.target.value })} placeholder="Carton quantity, quotation, halal requirement, storage details, delivery schedule..." /></div>
             <button className="btn wide">Open WhatsApp</button>
           </form>
 
@@ -1173,6 +1188,14 @@ export default function App() {
                     <div className="row-between"><span>Total items</span><strong>{cartCount}</strong></div>
                     <div className="row-between"><span>Estimated total</span><strong>{money(cartTotal)}</strong></div>
                   </div>
+                  <button
+                    type="button"
+                    className="btn wide"
+                    onClick={promptOrderViaWhatsApp}
+                    disabled={!cartCount}
+                  >
+                    Place Order Now
+                  </button>
                   <button type="button" className="btn btn-secondary wide" onClick={clearCart}>Clear Cart</button>
                 </div>
               )}
